@@ -1,0 +1,171 @@
+:root {
+  --background: #121212;
+  --onBackground: #0f0f0f;
+  --error: #cf6679;
+  --primary: #EDF67D;
+  --primaryVariant: #E8F353;
+}
+
+.indexContent {
+  display: block;
+}
+
+#tableOfContents {
+  border: 1px solid var(--primary);
+  margin: 10px;
+}
+
+html {
+  font-size: 2vmin;
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  display: inline;
+  font-family: "Nunito";
+  margin: 0;
+  margin-bottom: 5%;
+  background-color: var(--background);
+  color: var(--primary);
+}
+
+li {
+  list-style-type: none;
+  transition: background-color 100ms, color 100ms;
+}
+
+li a {
+  color: var(--primary);
+  padding: 1%;
+  padding-left: 2%;
+  display: block;
+}
+
+li:hover {
+  background-color: var(--primary);
+  color: var(--onBackground);
+}
+
+button {
+  border: 0;
+  background-color: var(--background);
+  color: var(--primary);
+  border-radius: 0.6vmin;
+}
+
+button:hover {
+  background-color: var(--onBackground);
+}
+
+p {
+  margin: 0;
+}
+
+#upperPanel {
+  padding-bottom: 1%;
+  padding-top: 1%;
+  height: 10%;
+  display: flex;
+  justify-content: center;
+  align-content: center;
+  transition: background-color 100ms;
+}
+
+#upperPanel:hover{
+  background-color: var(--onBackground);
+}
+
+#movingPanel {
+  display: block;
+}
+
+#upperPanel:hover .movingPanel{
+
+}
+
+#upperPanel:hover .navbar{
+  display: flex;
+}
+
+.navbar {
+  display: none;
+  justify-content: center;
+  align-content: center;
+}
+
+.navbar button{
+  border: 0.2vmin solid var(--primary);
+  margin-left: 0.5vmin;
+  margin-right: 0.5vmin;
+  font-size: 150%;
+  transition: background-color 100ms, color 100ms;
+}
+
+.navbar button:hover {
+  color: var(--onBackground);
+  background-color: var(--primary);
+}
+
+.header {
+  display: flex;
+  align-items: center; 
+  justify-content: center;
+  height: min-content;
+  font-size: 250%;
+}
+
+.algViewer {
+  display: flex;
+  height: 82%;
+  align-items: center; 
+  justify-content: center;
+}
+
+.algDisplay {
+  display:flex;
+  align-items: center; 
+  justify-content: center;
+  width: 90%;
+  height: 100%;
+}
+
+.algSwitch {
+  z-index: 1;
+  transition: opacity 100ms;
+  border-radius: 0;
+  font-size: 300%;
+  opacity: 0.5;
+  height: 100%;
+  width: 5%;
+}
+
+.algSwitch:hover {
+  opacity: 1;
+}
+
+@font-face {
+  font-family: "Nunito";
+  src: url("./resources/Nunito.ttf");
+}
+
+footer {
+  z-index: 2;
+  color: var(--onBackground);
+  background-color: var(--primaryVariant);
+  position: fixed;
+  left: 0; bottom: 0;
+  width: 100%;
+  height: 5%;
+  display: flex; 
+  align-items: center; 
+  justify-content: center;
+}
+
+a {
+  text-decoration: none;
+}
+
+a:visited {
+  color: inherit;
+}

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Algorithm</title>
+        <script src="scripts.js"></script>
+        <link href="styles.css" rel="stylesheet" type="text/css">
+        <meta name="viewport" content="height=device-height">
+    </head>
+    <body>
+        <div id="upperPanel">
+            <div id="movingPanel">
+                <div class="navbar">
+                    <button type="button" id="back" onclick="getBack()">Get me back</button>
+                    <button type="button" id="mainPage" onclick="toIndex()">Main page</button>
+                </div>
+                <div class="header" id="header"> 
+                    <p id="algName"></p>
+                </div>
+            </div>
+        </div>
+        <div class="algViewer">
+            <button type="button" id="previous" class="algSwitch" onclick="previous()">&#60;</button>
+            <div class="algDisplay" id="content">
+
+            </div>
+            <button type="button" id="next" class="algSwitch" onclick="next()">&#62;</button>
+        </div>
+        <script>
+            updateData();
+            displayFooter();
+            checkElementsRelevance();
+            getImage();
+        </script>
+    </body>
+</html>
