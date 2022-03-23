@@ -30,6 +30,7 @@ var cellWidth = canvasWidth / gridSize;
 var cellHeight = canvasHeight / gridSize;
 var updateInterval = 30;
 var updateFunctionIntervalId;
+var computedStyle;
 var context;//2d context
 var drawImage;//буфер рендера
 var drawBuffer;//сама data буффера - height*with*4 
@@ -43,7 +44,7 @@ class Globals {
         this.staticDrawable = [this.id.food, this.id.wall, this.id.spawner];
         this.behavior = { wander: 0, track: 1, return: 2 };
         // this.tools = { empty: 0, spawner: 1, food: 2, wall: 3 };
-        this.colors = ["#E5E5E5", "#8b8b8b", "#a5e314", "#000000", "#008b8b", "#2c4c2c"];
+        this.colors = ["--onBackground", "--error", "#3f5f20", "#000000", "--primaryVariant", "#2c4c2c"];
         this.colorsExperimental = [];
         this.htmlControlsIDs = ["spawner", "food", "wall", "eraser"];
         this.htmlIDs = [];
@@ -186,8 +187,6 @@ class Ant {
 
 }
 
-
-
 class Spawner {
     constructor(initX, initY) {
         this.pos = { x: initX, y: initY };
@@ -275,7 +274,7 @@ function hexToRgb(hex) {
         r: parseInt(result[1], 16),
         g: parseInt(result[2], 16),
         b: parseInt(result[3], 16),
-        a: parseInt("255", 16)
+        a: parseInt("FF", 16)
     } : null;
 }
 
@@ -287,6 +286,7 @@ function initializeCanvas() {
         canvas.width = canvasWidth;
         canvas.height = canvasHeight;
         canvas.style.display = "inline";
+        canvas.style.border = "0.2vmin solid" + computedStyle.getPropertyValue("--primary");
         // canvas.style.alignSelf = "center";
         initializeContent();
         let content = document.getElementById('content');
@@ -298,12 +298,15 @@ function initializeCanvas() {
         globals.htmlIDs.unshift("grid");
     }
     context = document.getElementById("grid").getContext("2d");
-    if (globals.experimentalRender) {
-        drawImage = context.createImageData(canvasWidth, canvasHeight);
-        drawBuffer = drawImage.data;
+    drawImage = context.createImageData(canvasWidth, canvasHeight);
+    drawBuffer = drawImage.data;
 
-        for (const col of globals.colors) {
-            globals.colorsExperimental.push(hexToRgb(col));
+    for (const col of globals.colors) {
+        let t = hexToRgb(col);
+        if (t != null) {
+            globals.colorsExperimental.push(t);
+        } else {
+            globals.colorsExperimental.push(hexToRgb(computedStyle.getPropertyValue(col).replace(/\s/g, '')));
         }
     }
 }
@@ -452,6 +455,7 @@ function initialize() {
     antSpawners = [];
     ants = [];
     cells = [];
+    computedStyle = getComputedStyle(document.body);
     for (let x = 0; x < gridSize; ++x) {
         grid[x] = [];
         gridBuffer[x] = [];
@@ -467,42 +471,6 @@ function initialize() {
 }
 
 function draw() {
-
-
-    function fill(x, y, width, height, color) {
-        // context.clearRect(x, y, width, height);
-        context.fillStyle = color;
-        context.fillRect(x, y, width, height);
-    }
-
-    fill(0, 0, canvasWidth, canvasHeight, globals.colors[globals.id.empty]);
-
-    for (let x = 0; x < gridSize; ++x) {
-        for (let y = 0; y < gridSize; ++y) {
-            if (gridBuffer[x][y] != grid[x][y] && globals.staticDrawable.includes(grid[x][y])) {
-                fill(x * cellWidth, y * cellHeight, cellWidth, cellHeight, globals.colors[grid[x][y]]);
-                // console.log("filled");
-            }
-        }
-    }
-
-    if (showPheromones) {
-        let colorCoeff;
-        for (let index = 0; index < pheromones.length; ++index) {
-            colorCoeff = pheromones[index].strength / pheromoneInitStrength * 255;
-            fill(pheromones[index].pos.x * cellWidth, pheromones[index].pos.y * cellHeight, cellWidth, cellHeight, "rgba(" + String(colorCoeff * 0.4) + "," + String(colorCoeff * 0.5) + "," + String(colorCoeff) + "," + String(Math.tan(colorCoeff / 400)) + ")");
-        }
-    }
-
-    for (let index = 0; index < ants.length; ++index) {
-        fill(ants[index].pos.x * cellWidth, ants[index].pos.y * cellHeight, cellWidth, cellHeight, globals.colors[globals.id.ant]);
-    }
-
-
-    cloneArray(gridBuffer, grid);
-}
-
-function drawExperimental() {
 
     function fill(x, y, width, height, color) {
         let index;
@@ -543,7 +511,7 @@ function drawExperimental() {
 
     cloneArray(gridBuffer, grid);
     context.putImageData(drawImage, 0, 0);//Swap ДБ
-}//Теорет
+}
 
 function update() {
     if (globals.paused) {
@@ -552,15 +520,6 @@ function update() {
     antLogic();
     pheromoneTick();
     draw();
-}
-
-function updateExperimental() {
-    if (globals.paused) {
-        return true;
-    }
-    antLogic();
-    pheromoneTick();
-    drawExperimental();
 }
 
 function placeCellCluster(x, y) {
@@ -582,6 +541,7 @@ function placeCellCluster(x, y) {
                     break;
                 case 0:
                     grid[xi][yi] = globals.selectedTool;
+                    cells[xi][yi] = null;
                     break;
                 default:
                     grid[xi][yi] = globals.selectedTool;
@@ -711,27 +671,15 @@ function changeUpdateInterval(newUpdInt) {
     updateFunctionIntervalId = setInterval(update, updateInterval);
 }
 
-function setExperimentalRender(state) {
-    if (state == true) {
-        clearInterval(updateFunctionIntervalId);
-        updateFunctionIntervalId = setInterval(updateExperimental, updateInterval);
-    }
-    else {
-        clearInterval(updateFunctionIntervalId);
-        updateFunctionIntervalId = setInterval(update, updateInterval);
-    }
-    globals.experimentalRender = Boolean(state);
-}
-
 function pauseAnts() {
     clearInterval(updateFunctionIntervalId);
-    updateFunctionIntervalId = setInterval((globals.experimentalRender == true ? drawExperimental : draw), updateInterval);
+    updateFunctionIntervalId = setInterval(draw, updateInterval);
     globals.paused = true;
 }
 
 function resumeAnts() {
     clearInterval(updateFunctionIntervalId);
-    updateFunctionIntervalId = setInterval((globals.experimentalRender == true ? updateExperimental : update), updateInterval);
+    updateFunctionIntervalId = setInterval(update, updateInterval);
     globals.paused = false;
 }
 
@@ -748,7 +696,7 @@ function onPauseButtonClick() {
 
 function antStart() {
     initialize();
-    updateFunctionIntervalId = setInterval(update, updateInterval);// автовызов update через updateInterval мс
+    updateFunctionIntervalId = setInterval(update, updateInterval);
 }
 
 function antExit() {
