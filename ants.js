@@ -517,9 +517,10 @@ function initializeCanvas() {
 
     let parameterDiv = document.createElement('div');
     parameterDiv.id = "parameters";
-    parameterDiv.style.display = "inline-block";
+    parameterDiv.style.display = "none";
     parameterDiv.style.marginLeft = "3%";
     parameterDiv.style.position = "fixed";
+    parameterDiv.style.opacity = "0";
     globals.htmlIDs.unshift("parameters");
     function addParameter(name, inputContainer) {
         let par = document.createElement("div");
@@ -802,6 +803,29 @@ function onKeyDown(event) {
     else if (/Space/.test(event.code)) {
         onPauseButtonClick();
         event.preventDefault();
+    } else if (/Tab/.test(event.code)) {
+        let params = document.getElementById("parameters");
+        event.preventDefault();
+        if (params.updateIntervalId != null) {
+            return true;
+        }
+        params.fadeStep = params.style.display == "none" ? 0.1 : -0.1;
+
+        params.updateIntervalId = setInterval(paramsFade, 40, params);
+    }
+}
+
+function paramsFade(params) {
+    let opacity = Number(params.style.opacity);
+    if (params.style.display == "none") {
+        params.style.display = "inline-block";
+    }
+    params.style.opacity = String(opacity += params.fadeStep);
+    if (opacity <= 0. || opacity >= 1.) {
+        params.style.opacity = opacity = Math.round(opacity);
+        params.style.display = opacity > 0 ? "inline-block" : "none";
+        clearInterval(params.updateIntervalId);
+        params.updateIntervalId = null;
     }
 }
 
