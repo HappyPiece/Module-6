@@ -14,7 +14,7 @@ var showPheromones = true;
 var antLimit = 150;
 var signalInitialStrength = 100;
 var maxSpawnAttemptDistance = 8;
-var maxAntTravelDistance = 100;
+var maxAntTravelDistance = 300;
 var antSpawnChance = .5;
 var antRandomMovementThreshold = 0.05;
 var antVisionRadius = 2;
@@ -72,26 +72,6 @@ class Ant {
         this.travelDistance = 0;
         this.travelSteps = [];
     }
-    // randomMove() {
-    //     // var x = Math.random() * antStep; x = Math.floor(x * 2 - x);
-    //     // var y = Math.random() * antStep; y = Math.floor(y * 2 - y);
-    //     var x = this.pos.x + Math.floor(Math.random() * 3 * antStep) % (antStep * 2 + 1) - antStep;
-    //     var y = this.pos.y + Math.floor(Math.random() * 3 * antStep) % (antStep * 2 + 1) - antStep;
-    //     x = Math.max(Math.min(x, gridSize - 1), 0);
-    //     y = Math.max(Math.min(y, gridSize - 1), 0);
-    //     if (grid[x][y] == globals.id.empty) {
-    //         this.pos.x = x;
-    //         this.pos.y = y;
-    //     }
-    // }
-    // moveTo(x, y) {
-    //     x = Math.max(Math.min(x, gridSize - 1), 0);
-    //     y = Math.max(Math.min(y, gridSize - 1), 0);
-    //     if (grid[x][y] == globals.id.empty) {
-    //         this.pos.x = x;
-    //         this.pos.y = y;
-    //     }
-    // }
     placePheromones() {
         let x, y, dist;
         for (let dx = -pheromoneRadius; dx <= pheromoneRadius; ++dx) {
@@ -139,7 +119,7 @@ class Ant {
                         break;
 
                     case globals.id.pheromone:
-                        if (this.foundTarget != food) {
+                        if (this.foundTarget != food || this.state != globals.behavior.track) {
                             this.state = globals.behavior.track;
                             this.foundTarget = [x, y, globals.id.pheromone];
                         }
@@ -179,6 +159,7 @@ class Ant {
                 break;
             case globals.behavior.track:
                 this.state = globals.behavior.wander;
+                // this.checkAdjacentCells();//
                 // this.chooseNextMove; // - на основе antVisionRadius, проверяя все клетки, приоритезируя феромоны по какой-то формуле
                 // а также еду на более близком расстоянии.
                 break;
@@ -447,7 +428,7 @@ function initializeControls() {
     controls.appendChild(tools);
     content.appendChild(controls);
 
-    document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keydown", onKeyDown);
     document.addEventListener("keyup", function (event) { globals.shiftKeyDown *= !(event.code.indexOf("Shift") >= 0); });
 
 }
@@ -521,7 +502,6 @@ function draw() {
     cloneArray(gridBuffer, grid);
 }
 
-
 function drawExperimental() {
 
     function fill(x, y, width, height, color) {
@@ -566,24 +546,21 @@ function drawExperimental() {
 }//Теорет
 
 function update() {
+    if (globals.paused) {
+        return true;
+    }
     antLogic();
     pheromoneTick();
     draw();
 }
 
 function updateExperimental() {
+    if (globals.paused) {
+        return true;
+    }
     antLogic();
     pheromoneTick();
     drawExperimental();
-}
-
-function updatePaused() {
-    if (globals.experimentalRender) {
-        updateExperimental();
-    } else {
-        draw();
-    }
-
 }
 
 function placeCellCluster(x, y) {
@@ -618,8 +595,8 @@ function onCanvasMouseMove(event) {
     if (!globals.toolButtonDown) {
         return false;
     }
-
-    let x = Math.floor((event.pageX - this.offsetLeft) / cellWidth), y = Math.floor((event.pageY - this.offsetTop) / cellHeight);
+    let rect = event.target.getBoundingClientRect();
+    let x = Math.floor((event.clientX - rect.left) / cellWidth), y = Math.floor((event.clientY - rect.top) / cellHeight);
     if (globals.shiftKeyDown) {
         if (Math.abs(globals.shiftInitPos.x - x) > Math.abs(globals.shiftInitPos.y - y)) {
             y = globals.shiftInitPos.y;
@@ -635,13 +612,11 @@ function onCanvasMouseMove(event) {
 
 function onCanvasMouseDown(event) {
     globals.toolButtonDown = true;
+    let rect = event.target.getBoundingClientRect();
+    let x = Math.floor((event.clientX - rect.left) / cellWidth), y = Math.floor((event.clientY - rect.top) / cellHeight);
     if (globals.shiftKeyDown) {
-        globals.shiftInitPos = { x: Math.floor((event.pageX - this.offsetLeft) / cellWidth), y: Math.floor((event.pageY - this.offsetTop) / cellHeight) };
-        // console.log(globals.shiftKeyDown);
-        // console.log(globals.shiftInitPos);
+        globals.shiftInitPos = { x: x, y: y };
     }
-
-    let x = Math.floor((event.pageX - this.offsetLeft) / cellWidth), y = Math.floor((event.pageY - this.offsetTop) / cellHeight);
     placeCellCluster(x, y);
 }
 
@@ -659,6 +634,7 @@ function onKeyDown(event) {
     }
     else if (/Space/.test(event.code)) {
         onPauseButtonClick();
+        event.preventDefault();
     }
 }
 
@@ -674,7 +650,6 @@ function toolSelectionClick(event) {
 
     console.log(globals.htmlControlsIDs[globals.selectedTool - 1]);
 }
-
 
 function antLogic() {
     for (let index = 0; index < ants.length; ++index) {
@@ -730,11 +705,6 @@ function pheromoneTick() {
     }
 }
 
-function antStart() {
-    initialize();
-    updateFunctionIntervalId = setInterval(update, updateInterval);// автовызов update через updateInterval мс
-}
-
 function changeUpdateInterval(newUpdInt) {
     clearInterval(updateFunctionIntervalId);
     updateInterval = newUpdInt;
@@ -755,13 +725,13 @@ function setExperimentalRender(state) {
 
 function pauseAnts() {
     clearInterval(updateFunctionIntervalId);
-    updateFunctionIntervalId = setInterval(updatePaused, updateInterval);
+    updateFunctionIntervalId = setInterval((globals.experimentalRender == true ? drawExperimental : draw), updateInterval);
     globals.paused = true;
 }
 
 function resumeAnts() {
     clearInterval(updateFunctionIntervalId);
-    updateFunctionIntervalId = setInterval(update, updateInterval);
+    updateFunctionIntervalId = setInterval((globals.experimentalRender == true ? updateExperimental : update), updateInterval);
     globals.paused = false;
 }
 
@@ -776,6 +746,11 @@ function onPauseButtonClick() {
     }
 }
 
+function antStart() {
+    initialize();
+    updateFunctionIntervalId = setInterval(update, updateInterval);// автовызов update через updateInterval мс
+}
+
 function antExit() {
     removeElements();
     clearInterval(updateFunctionIntervalId);
@@ -788,5 +763,5 @@ function antExit() {
     globals = new Globals();
 }
 
-antStart()
+antStart();
 
