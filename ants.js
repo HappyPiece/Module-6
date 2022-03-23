@@ -36,6 +36,7 @@ var drawImage;//буфер рендера
 var drawBuffer;//сама data буффера - height*with*4 
 var sliderBackgroundColor = "#242424";
 var sliderThumbColor = "#04AA6D";
+var sliderThumbSize = 25;
 
 class Globals {
     constructor() {
@@ -59,6 +60,7 @@ class Globals {
         this.toolSize = 2;
         this.shiftKeyDown = false;
         this.shiftInitPos = { x: 0, y: 0 };
+        this.bloom = false;
     }
 }
 var globals = new Globals();
@@ -299,8 +301,8 @@ function registerCustomSlider() {
           .slider::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
-            width: 25px;
-            height: 25px;
+            width: ${sliderThumbSize}px;
+            height: ${sliderThumbSize}px;
             background: ${sliderThumbColor};
             cursor: pointer;
           }
@@ -316,10 +318,99 @@ function registerCustomSlider() {
     styleSheet.innerText = sliderStyle;
     styleSheet.id = "slider-styles";
     document.head.appendChild(styleSheet);
-    globals.htmlIDs.unshift(styleSheet.id);
+    globals.htmlIDs.unshift("slider-styles");
+
+    let popup = document.createElement("div");
+    let popupText = document.createElement("span");
+    popup.id = "sliderPopUp";
+    popupText.id = "sliderPopUpText";
+
+    popup.appendChild(popupText);
+    popup.style.display = "none";
+    popup.style.position = "absolute";
+    popup.style.left = "100px";
+    popup.style.top = "50px";
+    // popup.style.width = "135px";
+    popup.style.border = "solid" + computedStyle.getPropertyValue("--primaryVariant") + " 1px";
+    popup.style.backgroundColor = computedStyle.getPropertyValue("--onBackground");
+    popup.style.textAlign = "justify";
+    popup.style.padding = "4px";
+    popup.style.fontSize = "1.5vmin";
+    document.body.appendChild(popup);
+    globals.htmlIDs.unshift("sliderPopUp");
 }
 
-function createCustomSlider(min, max, id, width = null, value = 0, onChange = function () { return true; }) {
+function registerCustomCheckbox() {
+    let checkboxStyle = `
+    .checkboxContainer {
+        display: block;
+        position: relative;
+        margin: 2px;
+        margin-top: 5px;
+        cursor: pointer;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+      }
+      
+      /* Hide the browser's default checkbox */
+      .checkboxContainer input {
+        position: absolute;
+        opacity: 0;
+        cursor: pointer;
+        height: 0;
+        width: 0;
+      }
+      
+      /* Create a custom checkbox */
+      .checkmark {
+        position: absolute;
+        border: 0.2vmin solid ${computedStyle.getPropertyValue("--primary")};
+        top: 0;
+        left: 0;
+        height: 17px;
+        width: 17px;
+        background-color: ${sliderBackgroundColor};
+      }
+      
+
+      /* When the checkbox is checked, add a blue background */
+      .checkboxContainer input:checked ~ .checkmark {
+        background-color: ${sliderThumbColor};
+      }
+      
+      /* Create the checkmark/indicator (hidden when not checked) */
+      .checkmark:after {
+        content: "";
+        position: absolute;
+        display: none;
+      }
+      
+      /* Show the checkmark when checked */
+      .checkboxContainer input:checked ~ .checkmark:after {
+        display: block;
+      }
+      
+      /* Style the checkmark/indicator */
+      .checkboxContainer .checkmark:after {
+        left: 9px;
+        top: 5px;
+        width: 5px;
+        height: 10px;
+        -webkit-transform: rotate(45deg);
+        -ms-transform: rotate(45deg);
+        transform: rotate(45deg);
+      }
+` ;
+    var styleSheet = document.createElement('style');
+    styleSheet.innerText = checkboxStyle;
+    styleSheet.id = "checkbox-styles";
+    document.head.appendChild(styleSheet);
+    globals.htmlIDs.unshift("checkbox-styles");
+}
+
+function createCustomSlider(min, max, id, width = null, value = 0, onChange = function () { return true; }, popUpValue = null) {
     let slider = document.createElement("input");
     slider.className = "slider";
     slider.type = "range";
@@ -331,18 +422,63 @@ function createCustomSlider(min, max, id, width = null, value = 0, onChange = fu
     if (width) {
         slider.style.width = String(width);
     }
-    // slider.style.height = "20px";
-    // slider.style.alignSelf = "center";
-    // slider.style.background = sliderBackgroundColor;
-    // slider.style.outline = "none";
-    // slider.style.textAlign = "center";
-    // slider.style.opacity = "0.7";
-    // slider.style.transition = "opacity .2s";
     slider.addEventListener("mouseenter", function () { slider.style.opacity = "1"; });
     slider.addEventListener("mouseleave", function () { slider.style.opacity = "0.7"; });
     slider.addEventListener("change", onChange);
-    // globals.htmlIDs.unshift(String(id));
+    if (popUpValue) {
+        let popup = document.getElementById("sliderPopUp");
+        slider.addEventListener("mouseover", onSliderMouseOver);
+        slider.addEventListener("mouseleave", function () { popup.style.display = "none"; });
+        slider.addEventListener("mousemove", onSliderMouseMove);
+
+        function onSliderMouseOver(event) {
+            let x = event.clientX + window.scrollX - 2, y = event.clientY + window.scrollY + 13;
+
+            popup.style.display = "none";
+            popup.style.left = x + "px";
+            popup.style.top = y + "px";
+            popup.style.display = "block";
+
+            popup.innerHTML = String(popUpValue());
+        }
+        function onSliderMouseMove(event) {
+            let x = event.clientX, y = event.clientY;
+            // let rect = event.target.getBoundingClientRect();
+            // let thumbX = rect.left + Math.max(Number(slider.value) / max * Math.round(rect.right - rect.left - sliderThumbSize / 2), 0);
+            // if (!(x > thumbX && x < thumbX + sliderThumbSize)) {
+            //     popup.style.display = "none";
+            //     return true;
+            // }
+            popup.style.left = String(x + window.scrollX - 2) + "px";
+            popup.style.top = String(y + window.scrollY + 13) + "px";
+            popup.innerHTML = String(popUpValue());
+        }
+    }
     return slider;
+}
+
+function createCustomCheckbox(id, checked = false, text = "", onChange = function () { return true; }) {
+    let cbContainer = document.createElement("label");
+    let checkbox = document.createElement("input");
+    let checkMark = document.createElement("span");
+
+    cbContainer.className = "checkboxContainer";
+    checkMark.className = "checkmark";
+    checkbox.className = "checkbox";
+
+    checkbox.type = "checkbox";
+    checkbox.id = String(id);
+    checkbox.checked = checked;
+
+    cbContainer.innerText = String(text);
+    cbContainer.checked = checked;
+
+    cbContainer.appendChild(checkbox);
+    cbContainer.appendChild(checkMark);
+    cbContainer.addEventListener("mousedown", function () { this.checked = checkbox.checked; });
+    cbContainer.addEventListener("mousedown", onChange);
+    globals.htmlIDs.unshift(String(id));
+    return cbContainer;
 }
 
 function initializeCanvas() {
@@ -385,29 +521,33 @@ function initializeCanvas() {
     parameterDiv.style.marginLeft = "3%";
     parameterDiv.style.position = "fixed";
     globals.htmlIDs.unshift("parameters");
-    function addParameter(name, slider) {
+    function addParameter(name, inputContainer) {
         let par = document.createElement("div");
         par.display = "block";
-        let text = document.createElement('p');
-        text.innerText = name + " ";
-        text.style.display = "flex";
-        text.style.flexDirection = "column";
-        par.appendChild(text);
-        par.appendChild(slider);
+        if (name) {
+            let text = document.createElement('p');
+            text.innerText = name + " ";
+            text.style.display = "flex";
+            text.style.flexDirection = "column";
+            par.appendChild(text);
+        }
+        par.appendChild(inputContainer);
         parameterDiv.appendChild(par);
     }
-    let antLimitS = createCustomSlider(0, 1000, 'antLimit', "100%", antLimit, function () { antLimit = antLimitS.value; });
-    let pheromoneRadiusS = createCustomSlider(1, Math.round(gridSize / 10), 'pheromoneRadius', "100%", pheromoneRadius, function () { pheromoneRadius = pheromoneRadiusS.value; });
-    let pheromoneInitStrengthS = createCustomSlider(1, 10, 'pheromoneInitStrength', "100%", pheromoneInitStrength, function () { pheromoneInitStrength = pheromoneInitStrengthS.value * 10; });
-    let pheromoneDecreasePerTickS = createCustomSlider(1, 20, 'pheromoneDecrease', "100%", pheromoneDecreasePerTick, function () { pheromoneDecreasePerTick = pheromoneDecreasePerTickS.value / 10.0; });
-    let pheromoneExistThresholdS = createCustomSlider(1, 14, 'pheromoneThreshold', "100%", Math.round(pheromoneExistThreshold / 5), function () { pheromoneExistThreshold = pheromoneExistThresholdS.value * 5; });
-    let updateIntervalS = createCustomSlider(1, 200, 'fpsSlider', "100%", Math.round(updateInterval), function () { changeUpdateInterval(Math.round(1000 / updateIntervalS.value)); });
+    let antLimitS = createCustomSlider(0, 1000, 'antLimit', "100%", antLimit, function () { antLimit = antLimitS.value; }, (x) => antLimit);
+    let pheromoneRadiusS = createCustomSlider(1, Math.round(gridSize / 10), 'pheromoneRadius', "100%", pheromoneRadius, function () { pheromoneRadius = pheromoneRadiusS.value; }, (x) => pheromoneRadius);
+    let pheromoneInitStrengthS = createCustomSlider(1, 10, 'pheromoneInitStrength', "100%", pheromoneInitStrength, function () { pheromoneInitStrength = pheromoneInitStrengthS.value * 10; }, (x) => pheromoneInitStrength);
+    let pheromoneDecreasePerTickS = createCustomSlider(1, 20, 'pheromoneDecrease', "100%", pheromoneDecreasePerTick, function () { pheromoneDecreasePerTick = pheromoneDecreasePerTickS.value / 10.0; }, (x) => pheromoneDecreasePerTick);
+    let pheromoneExistThresholdS = createCustomSlider(1, 14, 'pheromoneThreshold', "100%", Math.round(pheromoneExistThreshold / 5), function () { pheromoneExistThreshold = pheromoneExistThresholdS.value * 5; }, (x) => pheromoneExistThreshold);
+    let updateIntervalS = createCustomSlider(1, 200, 'fpsSlider', "100%", Math.round(updateInterval), function () { changeUpdateInterval(Math.round(1000 / updateIntervalS.value)); }, (x) => Math.round(1000 / updateInterval));
 
-    addParameter("Ant limit", antLimitS);
+    addParameter("Ant Limit", antLimitS);
     addParameter("Desired TPS", updateIntervalS);
-    addParameter("Pheromone spread radius", pheromoneRadiusS);
-    addParameter("Pheromone decrease per tick", pheromoneDecreasePerTickS);
-    addParameter("Pheromone exist threshold", pheromoneExistThresholdS);
+    addParameter("Pheromone Initial Strength", pheromoneInitStrengthS);
+    addParameter("Pheromone Spread Radius", pheromoneRadiusS);
+    addParameter("Pheromone Decrease per Tick", pheromoneDecreasePerTickS);
+    addParameter("Pheromone Exist Threshold", pheromoneExistThresholdS);
+    addParameter(null, createCustomCheckbox('cb', false, "Bloom", function () { this.checked ? context.disableBloom() : context.enableBloom(); }));
 
     content.appendChild(parameterDiv);
 }
@@ -526,6 +666,7 @@ function initialize() {
         }
     }
     registerCustomSlider();
+    registerCustomCheckbox();
     initializeCanvas();
     initializeControls();
 }
