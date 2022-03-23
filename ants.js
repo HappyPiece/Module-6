@@ -12,12 +12,12 @@ var pheromoneDecreasePerTick = 2;
 var pheromoneExistThreshold = 20;
 var showPheromones = true;
 var antLimit = 150;
-var signalInitialStrength = 100;
 var maxSpawnAttemptDistance = 8;
 var maxAntTravelDistance = 300;
 var antSpawnChance = .5;
 var antRandomMovementThreshold = 0.05;
 var antVisionRadius = 2;
+var antDespawnRate = 0.7;
 
 var gridSize = 150;
 var grid = [];
@@ -319,7 +319,7 @@ function registerCustomSlider() {
     globals.htmlIDs.unshift(styleSheet.id);
 }
 
-function createCustomSlider(min, max, id, width, value = 0, onChange = function () { return true; }) {
+function createCustomSlider(min, max, id, width = null, value = 0, onChange = function () { return true; }) {
     let slider = document.createElement("input");
     slider.className = "slider";
     slider.type = "range";
@@ -328,7 +328,9 @@ function createCustomSlider(min, max, id, width, value = 0, onChange = function 
     slider.value = String(value);
     slider.id = String(id);
     // slider.style.appearance = "none";
-    slider.style.width = String(width) + "px";
+    if (width) {
+        slider.style.width = String(width);
+    }
     // slider.style.height = "20px";
     // slider.style.alignSelf = "center";
     // slider.style.background = sliderBackgroundColor;
@@ -336,15 +338,17 @@ function createCustomSlider(min, max, id, width, value = 0, onChange = function 
     // slider.style.textAlign = "center";
     // slider.style.opacity = "0.7";
     // slider.style.transition = "opacity .2s";
-    slider.addEventListener("mouseenter", function () { toolSizeSlider.style.opacity = "1"; });
-    slider.addEventListener("mouseleave", function () { toolSizeSlider.style.opacity = "0.7"; });
+    slider.addEventListener("mouseenter", function () { slider.style.opacity = "1"; });
+    slider.addEventListener("mouseleave", function () { slider.style.opacity = "0.7"; });
     slider.addEventListener("change", onChange);
-    globals.htmlIDs.unshift(String(id));
+    // globals.htmlIDs.unshift(String(id));
     return slider;
 }
 
 function initializeCanvas() {
     let canvas = document.getElementById("grid");
+    initializeContent();
+    let content = document.getElementById('content');
     if (canvas == null) {
         canvas = document.createElement('canvas');
         canvas.id = "grid";
@@ -352,9 +356,7 @@ function initializeCanvas() {
         canvas.height = canvasHeight;
         canvas.style.display = "inline";
         canvas.style.border = "0.2vmin solid" + computedStyle.getPropertyValue("--primary");
-        // canvas.style.alignSelf = "center";
-        initializeContent();
-        let content = document.getElementById('content');
+        // canvas.style.alignSelf = "center";        
         content.appendChild(canvas);
         // canvas.addEventListener("click", onCanvasClicked);
         canvas.addEventListener("mousedown", onCanvasMouseDown);
@@ -376,6 +378,38 @@ function initializeCanvas() {
             globals.colorsExperimental.push(hexToRgb(computedStyle.getPropertyValue(col).replace(/\s/g, '')));
         }
     }
+
+    let parameterDiv = document.createElement('div');
+    parameterDiv.id = "parameters";
+    parameterDiv.style.display = "inline-block";
+    parameterDiv.style.marginLeft = "3%";
+    parameterDiv.style.position = "fixed";
+    globals.htmlIDs.unshift("parameters");
+    function addParameter(name, slider) {
+        let par = document.createElement("div");
+        par.display = "block";
+        let text = document.createElement('p');
+        text.innerText = name + " ";
+        text.style.display = "flex";
+        text.style.flexDirection = "column";
+        par.appendChild(text);
+        par.appendChild(slider);
+        parameterDiv.appendChild(par);
+    }
+    let antLimitS = createCustomSlider(0, 1000, 'antLimit', "100%", antLimit, function () { antLimit = antLimitS.value; });
+    let pheromoneRadiusS = createCustomSlider(1, Math.round(gridSize / 10), 'pheromoneRadius', "100%", pheromoneRadius, function () { pheromoneRadius = pheromoneRadiusS.value; });
+    let pheromoneInitStrengthS = createCustomSlider(1, 10, 'pheromoneInitStrength', "100%", pheromoneInitStrength, function () { pheromoneInitStrength = pheromoneInitStrengthS.value * 10; });
+    let pheromoneDecreasePerTickS = createCustomSlider(1, 20, 'pheromoneDecrease', "100%", pheromoneDecreasePerTick, function () { pheromoneDecreasePerTick = pheromoneDecreasePerTickS.value / 10.0; });
+    let pheromoneExistThresholdS = createCustomSlider(1, 14, 'pheromoneThreshold', "100%", Math.round(pheromoneExistThreshold / 5), function () { pheromoneExistThreshold = pheromoneExistThresholdS.value * 5; });
+    let updateIntervalS = createCustomSlider(1, 200, 'fpsSlider', "100%", Math.round(updateInterval), function () { changeUpdateInterval(Math.round(1000 / updateIntervalS.value)); });
+
+    addParameter("Ant limit", antLimitS);
+    addParameter("Desired TPS", updateIntervalS);
+    addParameter("Pheromone spread radius", pheromoneRadiusS);
+    addParameter("Pheromone decrease per tick", pheromoneDecreasePerTickS);
+    addParameter("Pheromone exist threshold", pheromoneExistThresholdS);
+
+    content.appendChild(parameterDiv);
 }
 
 function initializeContent() {
@@ -435,10 +469,6 @@ function initializeControls() {
     tools.style.textAlign = "center";
     globals.htmlIDs.unshift("tools");
 
-    registerCustomSlider();
-
-    toolSizeSlider = createCustomSlider(toolMinSize, toolMaxSize, 'toolSizeSlider', controlSize * globals.htmlControlsIDs.length, globals.toolSize, function () { globals.toolSize = Number(toolSizeSlider.value); console.log(globals.toolSize) });
-
     let pauseButton = document.createElement("img");
     pauseButton.src = srcPath + "pause.png";
     pauseButton.style.height = pauseButton.style.width = "20px";
@@ -446,6 +476,8 @@ function initializeControls() {
     pauseButton.style.marginLeft = "3px";
     pauseButton.id = "pause";
     pauseButton.addEventListener("click", onPauseButtonClick);
+
+    toolSizeSlider = createCustomSlider(toolMinSize, toolMaxSize, 'toolSizeSlider', controlSize * globals.htmlControlsIDs.length, globals.toolSize, function () { globals.toolSize = Number(toolSizeSlider.value); console.log(globals.toolSize) });
 
     tools.appendChild(toolSizeSlider);
     tools.appendChild(pauseButton);
@@ -458,11 +490,7 @@ function initializeControls() {
     ff.style.minHeight = String(Math.round(document.getElementsByTagName('footer')[0].clientHeight * 1.1)) + "px";
     ff.innerHTML = "&nbsp;";
     controls.appendChild(ff);
-    //
-
-    // let parameterDiv = document.createElement('div');
-
-    // for()
+    //    
 
     window.addEventListener("keydown", onKeyDown);
     document.addEventListener("keyup", function (event) { globals.shiftKeyDown *= !(event.code.indexOf("Shift") >= 0); });
@@ -497,6 +525,7 @@ function initialize() {
             cells[x][y] = null;
         }
     }
+    registerCustomSlider();
     initializeCanvas();
     initializeControls();
 }
@@ -664,6 +693,11 @@ function antLogic() {
         }
         if (antSpawners.length > 0 && !antSpawners[num].deletionFlag && !antSpawners[num].isSurrounded) {
             antSpawners[num].spawnAnt();
+        }
+    } else if (globals.antCount > antLimit) {
+        while (Math.random() < antDespawnRate && globals.antCount > antLimit && ants.length > 0) {
+            ants.splice(Math.floor(Math.random() * ants.length * 3) % ants.length, 1);
+            globals.antCount--;
         }
     }
     // signal
