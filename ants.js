@@ -28,12 +28,14 @@ var cells = []; //Хранит указатели на все объекты-с�
 var pheromones = [];
 var cellWidth = canvasWidth / gridSize;
 var cellHeight = canvasHeight / gridSize;
-var updateInterval = 30;
+var updateInterval = 25;
 var updateFunctionIntervalId;
 var computedStyle;
 var context;//2d context
 var drawImage;//буфер рендера
 var drawBuffer;//сама data буффера - height*with*4 
+var sliderBackgroundColor = "#242424";
+var sliderThumbColor = "#04AA6D";
 
 class Globals {
     constructor() {
@@ -44,7 +46,7 @@ class Globals {
         this.staticDrawable = [this.id.food, this.id.wall, this.id.spawner];
         this.behavior = { wander: 0, track: 1, return: 2 };
         // this.tools = { empty: 0, spawner: 1, food: 2, wall: 3 };
-        this.colors = ["--onBackground", "--error", "#3f5f20", "#000000", "--primaryVariant", "#2c4c2c"];
+        this.colors = ["--onBackground", "--error", "#3fFF20", "#000000", "--primaryVariant", "#2c4c2c"];
         this.colorsExperimental = [];
         this.htmlControlsIDs = ["spawner", "food", "wall", "eraser"];
         this.htmlIDs = [];
@@ -60,7 +62,6 @@ class Globals {
     }
 }
 var globals = new Globals();
-
 
 class Ant {
     constructor(initX, initY) {
@@ -237,6 +238,7 @@ class Spawner {
             }
         }
         this.surrounded = isSurrounded;
+        this.updated = true;
     }
     destroySelf() {
         grid[this.pos.x][this.pos.y] = globals.id.empty;
@@ -278,8 +280,71 @@ function hexToRgb(hex) {
     } : null;
 }
 
+function registerCustomSlider() {
+    let sliderStyle = `
+    .slider {
+            -webkit-appearance: none;
+            height: 20px;
+            background: ${sliderBackgroundColor};
+            outline: none;
+            opacity: 0.7;
+            -webkit-transition: .2s;
+            transition: opacity .2s;
+          }
+    
+          .slider:hover {
+            opacity: 1;
+          }
+    
+          .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 25px;
+            height: 25px;
+            background: ${sliderThumbColor};
+            cursor: pointer;
+          }
+    
+          .slider::-moz-range-thumb {
+            width: 25px;
+            height: 20px;
+            background: ${sliderThumbColor};
+            cursor: pointer;
+          }
+` ;
+    var styleSheet = document.createElement('style');
+    styleSheet.innerText = sliderStyle;
+    styleSheet.id = "slider-styles";
+    document.head.appendChild(styleSheet);
+    globals.htmlIDs.unshift(styleSheet.id);
+}
+
+function createCustomSlider(min, max, id, width, value = 0, onChange = function () { return true; }) {
+    let slider = document.createElement("input");
+    slider.className = "slider";
+    slider.type = "range";
+    slider.min = String(min);
+    slider.max = String(max);
+    slider.value = String(value);
+    slider.id = String(id);
+    // slider.style.appearance = "none";
+    slider.style.width = String(width) + "px";
+    // slider.style.height = "20px";
+    // slider.style.alignSelf = "center";
+    // slider.style.background = sliderBackgroundColor;
+    // slider.style.outline = "none";
+    // slider.style.textAlign = "center";
+    // slider.style.opacity = "0.7";
+    // slider.style.transition = "opacity .2s";
+    slider.addEventListener("mouseenter", function () { toolSizeSlider.style.opacity = "1"; });
+    slider.addEventListener("mouseleave", function () { toolSizeSlider.style.opacity = "0.7"; });
+    slider.addEventListener("change", onChange);
+    globals.htmlIDs.unshift(String(id));
+    return slider;
+}
+
 function initializeCanvas() {
-    let canvas = document.getElementById("grid")
+    let canvas = document.getElementById("grid");
     if (canvas == null) {
         canvas = document.createElement('canvas');
         canvas.id = "grid";
@@ -297,10 +362,12 @@ function initializeCanvas() {
         canvas.addEventListener("mousemove", onCanvasMouseMove);
         globals.htmlIDs.unshift("grid");
     }
-    context = document.getElementById("grid").getContext("2d");
+    context = canvas.getContext("2d");
+    context.enableBloom = function () { context.canvas.style.filter = "url(" + srcPath + "bloom.svg" + "#bloom)" };
+    context.disableBloom = function () { context.canvas.style.filter = "url()"; };
+
     drawImage = context.createImageData(canvasWidth, canvasHeight);
     drawBuffer = drawImage.data;
-
     for (const col of globals.colors) {
         let t = hexToRgb(col);
         if (t != null) {
@@ -310,7 +377,7 @@ function initializeCanvas() {
         }
     }
 }
-//Может ломать сайт из-за display block, нужен тест
+
 function initializeContent() {
     let content = document.getElementById('content');
     if (!content) {
@@ -368,56 +435,10 @@ function initializeControls() {
     tools.style.textAlign = "center";
     globals.htmlIDs.unshift("tools");
 
-    //<input type="range" min="1" max="3" value="2" class="slider" id="myRange"></input>
-    // .slider {
-    //     -webkit-appearance: none;
-    //     width: 100%;
-    //     height: 25px;
-    //     background: #d3d3d3;
-    //     outline: none;
-    //     opacity: 0.7;
-    //     -webkit-transition: .2s;
-    //     transition: opacity .2s;
-    //   }
+    registerCustomSlider();
 
-    //   .slider:hover {
-    //     opacity: 1;
-    //   }
+    toolSizeSlider = createCustomSlider(toolMinSize, toolMaxSize, 'toolSizeSlider', controlSize * globals.htmlControlsIDs.length, globals.toolSize, function () { globals.toolSize = Number(toolSizeSlider.value); console.log(globals.toolSize) });
 
-    //   .slider::-webkit-slider-thumb {
-    //     -webkit-appearance: none;
-    //     appearance: none;
-    //     width: 25px;
-    //     height: 25px;
-    //     background: #04AA6D;
-    //     cursor: pointer;
-    //   }
-
-    //   .slider::-moz-range-thumb {
-    //     width: 25px;
-    //     height: 25px;
-    //     background: #04AA6D;
-    //     cursor: pointer;
-    //   }
-    let toolSizeSlider = document.createElement("input");
-    toolSizeSlider.className = "toolSizeSlider";
-    toolSizeSlider.type = "range";
-    toolSizeSlider.min = String(toolMinSize);
-    toolSizeSlider.max = String(toolMaxSize);
-    toolSizeSlider.value = String(globals.toolSize);
-    toolSizeSlider.id = "toolSize";
-    toolSizeSlider.style.appearance = "none";
-    toolSizeSlider.style.width = String(controlSize * globals.htmlControlsIDs.length) + "px";
-    toolSizeSlider.style.height = "20px";
-    toolSizeSlider.style.alignSelf = "center";
-    toolSizeSlider.style.background = "#d3d3d3";
-    toolSizeSlider.style.outline = "none";
-    toolSizeSlider.style.textAlign = "center";
-    toolSizeSlider.style.opacity = "0.7";
-    toolSizeSlider.style.transition = "opacity .2s";
-    toolSizeSlider.addEventListener("mouseenter", function () { toolSizeSlider.style.opacity = "1"; });
-    toolSizeSlider.addEventListener("mouseleave", function () { toolSizeSlider.style.opacity = "0.7"; });
-    toolSizeSlider.addEventListener("change", function () { globals.toolSize = Number(toolSizeSlider.value); console.log(globals.toolSize) });
     let pauseButton = document.createElement("img");
     pauseButton.src = srcPath + "pause.png";
     pauseButton.style.height = pauseButton.style.width = "20px";
@@ -431,9 +452,20 @@ function initializeControls() {
     controls.appendChild(tools);
     content.appendChild(controls);
 
+    //footer fix
+    let ff = document.createElement('div');
+    ff.display = "block";
+    ff.style.minHeight = String(Math.round(document.getElementsByTagName('footer')[0].clientHeight * 1.1)) + "px";
+    ff.innerHTML = "&nbsp;";
+    controls.appendChild(ff);
+    //
+
+    // let parameterDiv = document.createElement('div');
+
+    // for()
+
     window.addEventListener("keydown", onKeyDown);
     document.addEventListener("keyup", function (event) { globals.shiftKeyDown *= !(event.code.indexOf("Shift") >= 0); });
-
 }
 
 function removeElements() {
@@ -448,7 +480,6 @@ function removeElements() {
     globals.htmlIDs = [];
 }
 
-//Главная функция инициализации компонентов
 function initialize() {
     grid = [];
     gridBuffer = [];
@@ -492,6 +523,12 @@ function draw() {
     for (let x = 0; x < gridSize; ++x) {
         for (let y = 0; y < gridSize; ++y) {
             if (globals.staticDrawable.includes(grid[x][y])) {
+                if (grid[x][y] == globals.id.spawner && cells[x][y].isSurrounded) {
+                    let col = globals.colorsExperimental[grid[x][y]];
+                    col.g -= 100;
+                    col.b -= 100;
+                    fill(x * cellWidth, y * cellHeight, cellWidth, cellHeight, col);
+                }
                 fill(x * cellWidth, y * cellHeight, cellWidth, cellHeight, globals.colorsExperimental[grid[x][y]]);
             }
         }
@@ -712,4 +749,7 @@ function antExit() {
 }
 
 antStart();
+
+
+
 
