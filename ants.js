@@ -212,7 +212,7 @@ class Ant {
         return newpos;
     }
     getMoveProbability(potentialMove, strengthTotal, distanceTotal) {
-        return (potentialMove[2] / strengthTotal * pheromoneStrWeight) + (potentialMove[3] / distanceTotal * pheromoneDistanceWeight);
+        return 1 / (potentialMove[2] / strengthTotal * pheromoneStrWeight) + 1 / (potentialMove[3] / distanceTotal * pheromoneDistanceWeight);
     }
     turn() {
         if (isNaN(this.pos.x) || this.travelSteps.length > maxAntTravelDistance) {
@@ -641,7 +641,7 @@ function initializeParams() {
         par.appendChild(inputContainer);
         parameterDiv.appendChild(par);
     }
-    let antLimitS = createCustomSlider(0, 1000, 'antLimit', "100%", antLimit, function () { antLimit = antLimitS.value; }, (x) => antLimit);
+    let antLimitS = createCustomSlider(0, 3000, 'antLimit', "100%", antLimit, function () { antLimit = antLimitS.value; }, (x) => antLimit);
     let pheromoneRadiusS = createCustomSlider(1, Math.round(gridSize / 10), 'pheromoneRadius', "100%", pheromoneRadius, function () { pheromoneRadius = this.value; }, (x) => pheromoneRadius);
     let pheromoneInitStrengthS = createCustomSlider(1, 10, 'pheromoneInitStrength', "100%", Math.round(pheromoneInitStrength / 10), function () { pheromoneInitStrength = this.value * 10; }, (x) => pheromoneInitStrength);
     let pheromoneDecreasePerTickS = createCustomSlider(1, 20, 'pheromoneDecrease', "100%", Math.round(pheromoneDecreasePerTick * 10), function () { pheromoneDecreasePerTick = this.value / 10.0; }, (x) => pheromoneDecreasePerTick);
@@ -656,6 +656,7 @@ function initializeParams() {
     addParameter("Pheromone Exist Threshold", pheromoneExistThresholdS);
     addParameter(null, createCustomCheckbox('bloomCb', globals.bloom, "Bloom", function () { this.checkbox.checked ? context.disableBloom() : context.enableBloom(); }));
     addParameter(null, createCustomCheckbox('mouselagCb', globals.mouseLagComp, "Fix Mouse Lag", function () { globals.mouseLagComp = !this.checkbox.checked; }));
+    addParameter(null, createCustomCheckbox("pheromoneCb", false, "Pheromones", function () { showPheromones = !this.checkbox.checked; }))
 
     content.appendChild(parameterDiv);
 }
@@ -808,7 +809,7 @@ function draw() {
     if (showPheromones) {
         let colorCoeff;
         for (let index = 0; index < pheromones.length; ++index) {
-            colorCoeff = (Math.min(pheromones[index].strength / pheromoneInitStrength, 1) * 255);
+            colorCoeff = pheromones[index].strength / pheromoneInitStrength * 255;
             fill(pheromones[index].pos.x * cellWidth, pheromones[index].pos.y * cellHeight, cellWidth, cellHeight, { r: colorCoeff * 0.4, g: colorCoeff * 0.5, b: colorCoeff, a: Math.sin(colorCoeff / 300) * 255 });
         }
     }
