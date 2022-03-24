@@ -87,6 +87,9 @@ function getImage() {
                 image.src = "./resources/rambo.gif";
                 document.getElementById("content").append(image);
                 break;
+            case 5:
+                document.write("<script src = 'nn.js'></script>");
+                break;
             default:
                 image.src = "./resources/gachi-fist.gif";
                 document.getElementById("content").append(image);
