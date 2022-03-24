@@ -6,17 +6,19 @@ var controlSizeShrunk = "80px";
 var toolMaxSize = 7;
 var toolMinSize = 1;
 var antStep = 1;
-var pheromoneRadius = 3;
+var pheromoneRadius = 1;
 var pheromoneInitStrength = 100;
-var pheromoneDecreasePerTick = 2;
+var pheromoneDecreasePerTick = .2;
 var pheromoneExistThreshold = 20;
+var pheromoneStrWeight = 1.;
+var pheromoneDistanceWeight = 0;
 var showPheromones = true;
 var antLimit = 150;
-var maxSpawnAttemptDistance = 8;
-var maxAntTravelDistance = 300;
+var maxSpawnAttemptDistance = 6;
+var maxAntTravelDistance = 150;
 var antSpawnChance = .5;
-var antRandomMovementThreshold = 0.05;
-var antVisionRadius = 2;
+var antRandomMovementThreshold = 0.0045;
+// var antVisionRadius = 1;
 var antDespawnRate = 0.7;
 
 var gridSize = 150;
@@ -77,6 +79,20 @@ class Ant {
         this.travelDistance = 0;
         this.travelSteps = [];
     }
+    orientationToward(x, y) {
+        if (x == this.pos.x) {
+            return (y > this.pos.y) ? 2 : 6;
+        }
+        else return (Math.round(Math.atan((y - this.pos.y) / (x - this.pos.x)) / (Math.PI / 4)) + 8 + 4 * (this.pos.x > x)) % 8;
+    }
+    reset() {
+        this.isCarryingFood = false;
+        this.foundTarget = [];
+        this.state = globals.behavior.wander;
+        this.orientation = Math.floor(Math.random() * 8) % 8;
+        this.travelDistance = 0;
+        this.travelSteps = [];
+    }
     placePheromones() {
         let x, y, dist;
         for (let dx = -pheromoneRadius; dx <= pheromoneRadius; ++dx) {
@@ -93,7 +109,8 @@ class Ant {
                             grid[x][y] = globals.id.pheromone;
                             break;
                         case globals.id.pheromone:
-                            cells[x][y].strength = Math.max(Math.round(pheromoneInitStrength * Math.cos(Math.round(dist / pheromoneRadius * 100.0) / 100.0)), cells[x][y].strength);
+                            // cells[x][y].strength += (1 - Math.pow(0.5, 1 / Math.dist(x, y, this.pos.x, this.pos.y))) * pheromoneInitStrength;
+                            cells[x][y].strength = Math.max(pheromoneInitStrength, cells[x][y].strength);
                             break;
                         default: break;
                     }
@@ -103,30 +120,41 @@ class Ant {
     }
     checkAdjacentCells() {
         let x, y, dist;
-        for (let dx = -antVisionRadius; dx <= antVisionRadius; ++dx) {
-            for (let dy = -antVisionRadius; dy <= antVisionRadius; ++dy) {
+        for (let dx = -1; dx < 2; ++dx) {
+            for (let dy = -1; dy < 2; ++dy) {
                 x = this.pos.x + dx, y = this.pos.y + dy, dist = Math.dist(x, y, this.pos.x, this.pos.y);
-                if (!(x > -1 && x < gridSize && y > -1 && y < gridSize) || dist > antVisionRadius) {
+                if (!(x > -1 && x < gridSize && y > -1 && y < gridSize) || x == this.pos.x && y == this.pos.y) {
                     continue;
                 }
                 switch (grid[x][y]) {
                     case globals.id.food:
-                        if (dist < 2) {
+                        if (dist < 2 && !this.isCarryingFood) {
                             this.isCarryingFood = true;
+                            this.foundTarget = [];
                             this.state = globals.behavior.return;
                             return true;
                         }
 
                         if (this.foundTarget.length > 0 && this.foundTarget[2] == globals.id.food && Math.dist(this.foundTarget[0], this.foundTarget[1], this.pos.x, this.pos.y) >= dist || this.foundTarget.length <= 0) {
                             this.foundTarget = [x, y, globals.id.food];
+                            this.orientation = this.orientationToward(x, y);
                             this.state = globals.behavior.track;
                         }
                         break;
 
                     case globals.id.pheromone:
-                        if (this.foundTarget != food || this.state != globals.behavior.track) {
+                        if (this.state == globals.behavior.wander) {
                             this.state = globals.behavior.track;
                             this.foundTarget = [x, y, globals.id.pheromone];
+                            this.orientation = this.orientationToward(x, y);
+                        }
+
+                        break;
+                    case globals.id.spawner:
+                        if (this.state == globals.behavior.return) {
+                            this.state = globals.behavior.wander;
+                            this.reset();
+                            this.spawnerCoords = { x: x, y: y };
                         }
                         break;
                     default: break;
@@ -134,7 +162,63 @@ class Ant {
             }
         }
     }
+    nextPheromoneMove() {
+        let potentialMove = [];
+        let strTotal = 0;
+        let probTotal = 0;
+        let distTotal = 0;
+        let x, y, turnAngleRad, dx, dy;
+        // for (let dx = -antVisionRadius; dx <= antVisionRadius; ++dx) {
+        //     for (let dy = -antVisionRadius; dy <= antVisionRadius; ++dy) {
+        //         x = this.pos.x + dx, y = this.pos.y + dy, dist = Math.dist(x, y, this.pos.x, this.pos.y);
+        //         if (!(x > -1 && x < gridSize && y > -1 && y < gridSize) || dist > antVisionRadius || grid[x][y] != globals.id.pheromone) {
+        //             continue;
+        //         }
+        //         movPool.push([x, y, dist, cells[x][y].strength]);
+        //         strTotal += cells[x][y].strength;
+        //     }
+        // }
+        for (let angle = this.orientation - 1; angle < this.orientation + 2; ++angle) {//муравей имеет угол обзора в 3 из 8 направлений (ориентация +-1)
+            turnAngleRad = ((angle + 8) % 8) * (Math.PI / 4);
+            dx = Math.cos(turnAngleRad), dy = Math.sin(turnAngleRad);
+            dx = Math.sign(dx) * Math.round(Math.abs(dx) + 0.1), dy = Math.sign(dy) * Math.round(Math.abs(dy) + 0.1);
+
+            x = this.pos.x + dx, y = this.pos.y + dy;
+            if (x < gridSize && x > -1 && y < gridSize && y > -1 && grid[x][y] == globals.id.pheromone) {
+                potentialMove.push([x, y, cells[x][y].strength, Math.dist(x, y, this.pos.x, this.pos.y)]);
+                strTotal += cells[x][y].strength;
+                distTotal += potentialMove[potentialMove.length - 1][3];
+            }
+        }
+        if (potentialMove.length <= 0) {
+            this.state = globals.behavior.wander;
+            return [this.pos.x, this.pos.y];
+        }
+
+        for (let index = 0, prob; index < potentialMove.length; ++index) {
+            prob = this.getMoveProbability(potentialMove[index], strTotal, distTotal);
+            probTotal += prob;
+            potentialMove[index].push(prob);
+        }
+
+        let rand = Math.random();
+        let newpos = [potentialMove[0][0], potentialMove[0][1]];
+        for (let index = 1, curr = 0.; index < potentialMove.length; ++index) {
+            curr += potentialMove[index][4] / probTotal;
+            if (rand < curr) {
+                newpos = [potentialMove[index][0], potentialMove[index][1]];
+            }
+        }
+        return newpos;
+    }
+    getMoveProbability(potentialMove, strengthTotal, distanceTotal) {
+        return (potentialMove[2] / strengthTotal * pheromoneStrWeight) + (potentialMove[3] / distanceTotal * pheromoneDistanceWeight);
+    }
     turn() {
+        if (isNaN(this.pos.x) || this.travelSteps.length > maxAntTravelDistance) {
+            pauseAnts();
+            console.log(this);
+        }
         switch (this.state) {
             case globals.behavior.wander:
                 let dx, dy, turnAngleRad, x, y;
@@ -150,23 +234,38 @@ class Ant {
                     }
                 }
                 if (potentialMove.length <= 0 || Math.random() <= antRandomMovementThreshold) {
-                    this.orientation = (this.orientation + Math.floor(Math.random() * 3)) % 8;
+                    this.orientation = (this.orientation + Math.sign(Math.random() * 2 - 1)) % 8;
                     break;
                 }
                 let t = potentialMove[Math.floor(Math.random() * 5) % potentialMove.length];
                 this.travelSteps.push(t);
-                [this.pos.x, this.pos.y] = t;
                 this.travelDistance += 1;
+                [this.pos.x, this.pos.y] = t;
                 if (this.travelDistance >= maxAntTravelDistance) {
                     this.state = globals.behavior.return;
                 }
                 this.checkAdjacentCells();
                 break;
             case globals.behavior.track:
-                this.state = globals.behavior.wander;
-                // this.checkAdjacentCells();//
-                // this.chooseNextMove; // - на основе antVisionRadius, проверяя все клетки, приоритезируя феромоны по какой-то формуле
-                // а также еду на более близком расстоянии.
+                let mov;
+                if (this.foundTarget[2] == globals.id.food) {
+                    mov = [Math.sign(this.foundTarget[0] - this.pos.x), Math.sign(this.foundTarget[1] - this.pos.y)];
+                }
+                else {
+                    let newpos = this.nextPheromoneMove();
+                    this.orientation = this.orientationToward(newpos[0], newpos[1]);
+                    mov = [Math.sign(newpos[0] - this.pos.x), Math.sign(newpos[1] - this.pos.y)];
+                }
+
+                this.pos.x += mov[0];
+                this.pos.y += mov[1];
+                this.travelSteps.push([this.pos.x, this.pos.y]);
+                this.travelDistance += 1;
+                if (this.travelDistance >= maxAntTravelDistance) {
+                    this.state = globals.behavior.return;
+                }
+                this.checkAdjacentCells();
+
                 break;
             case globals.behavior.return:
                 if (this.isCarryingFood) {
@@ -174,15 +273,13 @@ class Ant {
                 }
                 if (this.travelSteps.length > 0) {//Муравьи будут ходить через появившиеся за это время стены на пути домой, потом можно придумать решение, но алгоритм его не предусматривает
                     let index = this.travelSteps.length - 1;
-                    [this.pos.x, this.pos.y] = this.travelSteps[index];
+                    this.pos.x = this.travelSteps[index][0], this.pos.y = this.travelSteps[index][1];
                     this.travelSteps.splice(index, 1);
                 }
                 else {
-                    this.isCarryingFood = false;
-                    this.state = globals.behavior.wander;
-                    this.orientation = Math.floor(Math.random() * 8) % 8;
-                    this.travelDistance = 0;
+                    this.reset();
                 }
+                this.checkAdjacentCells();
                 break;
             default: break;
         }
@@ -545,11 +642,11 @@ function initializeParams() {
         parameterDiv.appendChild(par);
     }
     let antLimitS = createCustomSlider(0, 1000, 'antLimit', "100%", antLimit, function () { antLimit = antLimitS.value; }, (x) => antLimit);
-    let pheromoneRadiusS = createCustomSlider(1, Math.round(gridSize / 10), 'pheromoneRadius', "100%", pheromoneRadius, function () { pheromoneRadius = pheromoneRadiusS.value; }, (x) => pheromoneRadius);
-    let pheromoneInitStrengthS = createCustomSlider(1, 10, 'pheromoneInitStrength', "100%", pheromoneInitStrength, function () { pheromoneInitStrength = pheromoneInitStrengthS.value * 10; }, (x) => pheromoneInitStrength);
-    let pheromoneDecreasePerTickS = createCustomSlider(1, 20, 'pheromoneDecrease', "100%", pheromoneDecreasePerTick, function () { pheromoneDecreasePerTick = pheromoneDecreasePerTickS.value / 10.0; }, (x) => pheromoneDecreasePerTick);
-    let pheromoneExistThresholdS = createCustomSlider(1, 14, 'pheromoneThreshold', "100%", Math.round(pheromoneExistThreshold / 5), function () { pheromoneExistThreshold = pheromoneExistThresholdS.value * 5; }, (x) => pheromoneExistThreshold);
-    let updateIntervalS = createCustomSlider(1, 200, 'fpsSlider', "100%", Math.round(updateInterval), function () { changeUpdateInterval(Math.round(1000 / updateIntervalS.value)); }, (x) => Math.round(1000 / updateInterval));
+    let pheromoneRadiusS = createCustomSlider(1, Math.round(gridSize / 10), 'pheromoneRadius', "100%", pheromoneRadius, function () { pheromoneRadius = this.value; }, (x) => pheromoneRadius);
+    let pheromoneInitStrengthS = createCustomSlider(1, 10, 'pheromoneInitStrength', "100%", Math.round(pheromoneInitStrength / 10), function () { pheromoneInitStrength = this.value * 10; }, (x) => pheromoneInitStrength);
+    let pheromoneDecreasePerTickS = createCustomSlider(1, 20, 'pheromoneDecrease', "100%", Math.round(pheromoneDecreasePerTick * 10), function () { pheromoneDecreasePerTick = this.value / 10.0; }, (x) => pheromoneDecreasePerTick);
+    let pheromoneExistThresholdS = createCustomSlider(1, 14, 'pheromoneThreshold', "100%", Math.round(pheromoneExistThreshold / 5), function () { pheromoneExistThreshold = this.value * 5; }, (x) => pheromoneExistThreshold);
+    let updateIntervalS = createCustomSlider(1, 200, 'fpsSlider', "100%", Math.round(1000 / updateInterval), function () { changeUpdateInterval(Math.round(1000 / this.value)); }, (x) => Math.round(1000 / updateInterval));
 
     addParameter("Ant Limit", antLimitS);
     addParameter("Desired TPS", updateIntervalS);
@@ -568,13 +665,13 @@ function initializeContent() {
     if (!content) {
         alert("unable to find div id=content, creating");
         content = document.createElement("div");
+        content.id = "content";
         document.body.appendChild(content);
         //globals.htmlIDs.unshift("content");
     }
     content.style.alignContent = "center";
     content.style.textAlign = "center";
     content.style.display = "block";
-    content.id = "content";
     content.ondragstart = function () { return false; };
     return content;
 }
@@ -698,7 +795,6 @@ function draw() {
     }
 
 
-
     fill(0, 0, canvasWidth, canvasHeight, globals.colorsExperimental[globals.id.empty]);
 
     for (let x = 0; x < gridSize; ++x) {
@@ -712,7 +808,7 @@ function draw() {
     if (showPheromones) {
         let colorCoeff;
         for (let index = 0; index < pheromones.length; ++index) {
-            colorCoeff = pheromones[index].strength / pheromoneInitStrength * 255;
+            colorCoeff = (Math.min(pheromones[index].strength / pheromoneInitStrength, 1) * 255);
             fill(pheromones[index].pos.x * cellWidth, pheromones[index].pos.y * cellHeight, cellWidth, cellHeight, { r: colorCoeff * 0.4, g: colorCoeff * 0.5, b: colorCoeff, a: Math.sin(colorCoeff / 300) * 255 });
         }
     }
@@ -735,10 +831,19 @@ function update() {
 }
 
 function placeCellCluster(x, y) {
+
+    if (globals.selectedTool == 1337) {
+        console.log("mousepos: ", globals.mousepos);
+        for (let index = 0; index < ants.length; ++index) {
+            if (Math.dist(ants[index].pos.x, ants[index].pos.y, x, y) < 5) {
+                console.log(index, " : ", ants[index]);
+            }
+        }
+    }
     let left = Math.max(x - globals.toolSize, 0);
-    let right = Math.min(x + globals.toolSize, gridSize - 1);
+    let right = Math.min(x + globals.toolSize, gridSize);
     let YarikDown = Math.max(y - globals.toolSize, 0);
-    let up = Math.min(y + globals.toolSize, gridSize - 1);
+    let up = Math.min(y + globals.toolSize, gridSize);
     for (let xi = left; xi < right; ++xi) {
         for (let yi = YarikDown; yi < up; ++yi) {
             if (grid[xi][yi] == globals.id.spawner) {
@@ -930,29 +1035,7 @@ function antLogic() {
             globals.antCount--;
         }
     }
-    // signal
-    // for (var x = 0; x < gridSize; x = x + 1) {
-    //     for (var y = 0; y < gridSize; ++y) {
-    //         // adjust reference
-    //         grid[x][y].ant = gridBuffer[x][y].ant;
-    //         if (grid[x][y].has_ant() && grid[x][y].ant.isCarryingFood) {
-    //             boundedX = get_bounded_index(x);
-    //             boundedY = get_bounded_index(y);
-    //             var signal_strength = 1 - Math.pow(0.5, 1 / calc_distance(x, y, boundedX, boundedY));
-    //             grid[boundedX][boundedY].signal += signal_strength;
-    //             // is the ant near the nest with food? drop food
-    //             if (i < 5 && y < 5) {
-    //                 grid[x][y].ant.isCarryingFood = false;
-    //             }
-    //         }
-    //         else {
-    //             grid[x][y].signal *= 0.95;
-    //         }
-    //         if (grid[x][y].signal < 0.05) {
-    //             grid[x][y].signal = 0;
-    //         }
-    //     }
-    // }    
+
 }
 
 function pheromoneTick() {
