@@ -9649,14 +9649,14 @@ document.addEventListener('keypress', function(e) {
 			if (e.key == '0')
 			{
 				train_data.push({
-					input: vector, output: {'is sus': 1}
+					input: vector, output: {0: 1}
 				});
 				d.clear();
 			}
 			if (e.key == '1')
 			{
 				train_data.push({
-					input: vector, output: {'is not sus': 1}
+					input: vector, output: {1: 1}
 				});
 				d.clear();
 			}
