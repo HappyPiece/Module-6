@@ -960,8 +960,9 @@ function onCanvasMouseDown(event) {
 }
 
 function onKeyDown(event) {
-    globals.shiftKeyDown = (/Shift/.test(event.code));
-    if (/Digit[1234]/.test(event.code)) {
+    globals.shiftKeyDown = (/Shift/.test(event.code) || event.which == 16);
+    console.log(event.which);
+    if (/Digit[1234]/.test(event.code) || 48 < event.which && event.which < 53) {
         let num = Number(String(event.code)[5]);
         globals.selectedTool = (num) % globals.htmlControlsIDs.length;
 
@@ -971,10 +972,10 @@ function onKeyDown(event) {
         globals.selectedToolElement = document.getElementById(globals.htmlControlsIDs[num - 1]);
         globals.selectedToolElement.style.width = globals.selectedToolElement.style.height = controlSizeShrunk;
     }
-    else if (/Space/.test(event.code)) {
+    else if (/Space/.test(event.code) || event.which == 32) {
         onPauseButtonClick();
         event.preventDefault();
-    } else if (/Tab/.test(event.code)) {
+    } else if (/Tab/.test(event.code) || event.which == 9) {
         let params = document.getElementById("parameters");
         event.preventDefault();
         if (params.updateIntervalId != null) {
