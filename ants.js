@@ -445,7 +445,8 @@ function createCustomSlider(min, max, id, width = null, value = 0, onChange = fu
         function onSliderMouseMove(event) {
             let x = event.clientX, y = event.clientY;
             let rect = event.target.getBoundingClientRect();
-            let thumbX = rect.left + Math.max(Number(slider.value) / (max - min) * (rect.right - rect.left - sliderThumbSize - 2), 0);
+            let thumbX = rect.left + Math.max((Number(slider.value) - 1) / (max - min) * (rect.right - rect.left - sliderThumbSize - 2), 0);
+            console.log(Math.max((Number(slider.value) - 1) / (max - min)));
             if (!(x >= thumbX && x < thumbX + sliderThumbSize)) {
                 popup.style.display = "none";
                 return true;
