@@ -87,8 +87,7 @@ function getImage()
                 document.getElementById("content").append(image);
                 break;
             case 1:
-                image.src = "./resources/gachimuchi/call.gif";
-                document.getElementById("content").append(image);
+                document.write("<script src='./clustering.js'></script>");
                 break;
             case 2:
                 image.src = "./resources/gachimuchi/hacker.gif";

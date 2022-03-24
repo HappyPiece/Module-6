@@ -4,7 +4,7 @@
   --error: #cf6679;
   --primary: #EDF67D;
   --primaryVariant: #E8F353;
-  --Pheromones: #7327a7;
+  --pheromones: #7327a7;
   --onPheromones: #6d17a7;
 }
 
@@ -67,6 +67,8 @@ p {
 #upperPanel {
   user-select: none;
   padding-bottom: 1%;
+  border-bottom: 0.2vmin solid var(--primary);
+  border-color: var(--primary);
   padding-top: 1%;
   height: 10%;
   display: flex;
@@ -79,8 +81,13 @@ p {
   background-color: var(--onBackground);
 }
 
-#movingPanel {
+#upperPanel:hover #movingPanel{
+  background-color: var(--onBackground);
   display: block;
+}
+
+#movingPanel {
+  display: flex;
 }
 
 #upperPanel:hover .movingPanel{
@@ -114,8 +121,13 @@ p {
   display: flex;
   align-items: center; 
   justify-content: center;
-  height: min-content;
   font-size: 250%;
+}
+
+#algName {
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .algViewer {
@@ -130,6 +142,7 @@ p {
   align-items: center; 
   justify-content: center;
   width: 90%;
+  margin-top: 1%;
   height: 100%;
 }
 
