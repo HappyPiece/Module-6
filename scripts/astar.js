@@ -1,34 +1,16 @@
-var srcPath = "./resources/ants/";
+var srcPath = "./resources/astar/";
 var canvasWidth = 600;
 var canvasHeight = 600;
 var controlSize = "100px";
 var controlSizeShrunk = "80px";
 var toolMaxSize = 7;
 var toolMinSize = 1;
-var antStep = 1;
-var pheromoneRadius = 3;
-var pheromoneInitStrength = 100;
-var pheromoneDecreasePerTick = 2;
-var pheromoneExistThreshold = 20;
-var showPheromones = true;
-var antLimit = 150;
-var maxSpawnAttemptDistance = 8;
-var maxAntTravelDistance = 300;
-var antSpawnChance = .5;
-var antRandomMovementThreshold = 0.05;
-var antVisionRadius = 2;
-var antDespawnRate = 0.7;
 
 var gridSize = 150;
 var grid = [];
-// var gridBuffer = [];
-var antSpawners = [];
-var ants = [];
-var cells = []; //Хранит указатели на все объекты-содержимое (пока это только муравьи и спавнеры, причем муравьям идентификация не нужна, а значит и хендлеры не пригодятся)
-var pheromones = [];
 var cellWidth = canvasWidth / gridSize;
 var cellHeight = canvasHeight / gridSize;
-var updateInterval = 25;
+var updateInterval = 80;
 var updateFunctionIntervalId;
 var computedStyle;
 var context;//2d context
@@ -37,21 +19,19 @@ var drawBuffer;//сама data буффера - height*with*4
 var sliderBackgroundColor = "#242424";
 var sliderThumbColor = "#04AA6D";
 var sliderThumbSize = 25;
+var globals;
 
 class Globals {
     constructor() {
-        this.paused = false;
-        this.id = { empty: 0, spawner: 1, food: 2, wall: 3, ant: 4, pheromone: 5 };
-        this.walkable = [this.id.empty, this.id.pheromone, this.id.ant];
-        this.staticDrawable = [this.id.food, this.id.wall, this.id.spawner];
-        this.behavior = { wander: 0, track: 1, return: 2 };
+        this.paused = true;
+        this.id = { empty: 0, closed: 1, open: 2, wall: 3 };
+        // this.walkable = [this.id.empty, this.id.pheromone, this.id.ant];
+        // this.staticDrawable = [this.id.food, this.id.wall, this.id.spawner];
         // this.tools = { empty: 0, spawner: 1, food: 2, wall: 3 };
-        this.colors = ["--onBackground", "--error", "#3fFF20", "#000000", "--primaryVariant", "#2c4c2c"];
+        this.colors = ["--onBackground", "--error", "#3fFF20", "#000000"];
         this.colorsExperimental = [];
-        this.htmlControlsIDs = ["spawner", "food", "wall", "eraser"];
+        this.htmlControlsIDs = ["start", "end", "eraser"];
         this.htmlIDs = [];
-        this.antCount = 0;
-        this.spawnerDeletionFlags = 0;
         this.selectedTool = 0;
         this.selectedToolElement = null;
         this.eraseClickTimestamp = null;
@@ -61,203 +41,33 @@ class Globals {
         this.shiftInitPos = { x: 0, y: 0 };
         this.bloom = false;
         this.mousepos = [];
-        this.mouseLagComp = false;
-    }
-}
-var globals = new Globals();
-
-class Ant {
-    constructor(initX, initY) {
-        this.state = globals.behavior.wander;
-        this.pos = { x: initX, y: initY };
-        this.isCarryingFood = false;
-        this.foundTarget = [];
-        this.orientation = Math.floor(Math.random() * 8) % 8;// верх-низ-право-лево-диагонали        
-        this.spawnerCoords = { x: initX, y: initY };
-        this.travelDistance = 0;
-        this.travelSteps = [];
-    }
-    placePheromones() {
-        let x, y, dist;
-        for (let dx = -pheromoneRadius; dx <= pheromoneRadius; ++dx) {
-            for (let dy = -pheromoneRadius; dy <= pheromoneRadius; ++dy) {
-                x = this.pos.x + dx, y = this.pos.y + dy, dist = Math.dist(x, y, this.pos.x, this.pos.y);
-                if (!(x < gridSize && x > -1 && y < gridSize && y > -1) || dist > pheromoneRadius) {
-                    continue;
-                }
-                else {
-                    switch (grid[x][y]) {
-                        case globals.id.empty:
-                            pheromones.push(new Pheromone(x, y, Math.round(pheromoneInitStrength * Math.cos(Math.round(dist / pheromoneRadius * 100.0) / 100.0))));
-                            cells[x][y] = pheromones[pheromones.length - 1];
-                            grid[x][y] = globals.id.pheromone;
-                            break;
-                        case globals.id.pheromone:
-                            cells[x][y].strength = Math.max(Math.round(pheromoneInitStrength * Math.cos(Math.round(dist / pheromoneRadius * 100.0) / 100.0)), cells[x][y].strength);
-                            break;
-                        default: break;
-                    }
-                }
-            }
-        }
-    }
-    checkAdjacentCells() {
-        let x, y, dist;
-        for (let dx = -antVisionRadius; dx <= antVisionRadius; ++dx) {
-            for (let dy = -antVisionRadius; dy <= antVisionRadius; ++dy) {
-                x = this.pos.x + dx, y = this.pos.y + dy, dist = Math.dist(x, y, this.pos.x, this.pos.y);
-                if (!(x > -1 && x < gridSize && y > -1 && y < gridSize) || dist > antVisionRadius) {
-                    continue;
-                }
-                switch (grid[x][y]) {
-                    case globals.id.food:
-                        if (dist < 2) {
-                            this.isCarryingFood = true;
-                            this.state = globals.behavior.return;
-                            return true;
-                        }
-
-                        if (this.foundTarget.length > 0 && this.foundTarget[2] == globals.id.food && Math.dist(this.foundTarget[0], this.foundTarget[1], this.pos.x, this.pos.y) >= dist || this.foundTarget.length <= 0) {
-                            this.foundTarget = [x, y, globals.id.food];
-                            this.state = globals.behavior.track;
-                        }
-                        break;
-
-                    case globals.id.pheromone:
-                        if (this.foundTarget != food || this.state != globals.behavior.track) {
-                            this.state = globals.behavior.track;
-                            this.foundTarget = [x, y, globals.id.pheromone];
-                        }
-                        break;
-                    default: break;
-                }
-            }
-        }
-    }
-    turn() {
-        switch (this.state) {
-            case globals.behavior.wander:
-                let dx, dy, turnAngleRad, x, y;
-                let potentialMove = [];
-                for (let angle = this.orientation - 1; angle < this.orientation + 2; ++angle) {//муравей имеет угол обзора в 3 из 8 направлений (ориентация +-1)
-                    turnAngleRad = ((angle + 8) % 8) * (Math.PI / 4);
-                    dx = Math.cos(turnAngleRad), dy = Math.sin(turnAngleRad);
-                    dx = Math.sign(dx) * Math.round(Math.abs(dx) + 0.1), dy = Math.sign(dy) * Math.round(Math.abs(dy) + 0.1);
-                    x = this.pos.x + dx, y = this.pos.y + dy;
-                    // console.log(dx + " " + dy + " " + angle);
-                    if (x < gridSize && x > -1 && y < gridSize && y > -1 && globals.walkable.includes(grid[x][y])) {
-                        potentialMove.push([x, y]);
-                    }
-                }
-                if (potentialMove.length <= 0 || Math.random() <= antRandomMovementThreshold) {
-                    this.orientation = (this.orientation + Math.floor(Math.random() * 3)) % 8;
-                    break;
-                }
-                let t = potentialMove[Math.floor(Math.random() * 5) % potentialMove.length];
-                this.travelSteps.push(t);
-                [this.pos.x, this.pos.y] = t;
-                this.travelDistance += 1;
-                if (this.travelDistance >= maxAntTravelDistance) {
-                    this.state = globals.behavior.return;
-                }
-                this.checkAdjacentCells();
-                break;
-            case globals.behavior.track:
-                this.state = globals.behavior.wander;
-                // this.checkAdjacentCells();//
-                // this.chooseNextMove; // - на основе antVisionRadius, проверяя все клетки, приоритезируя феромоны по какой-то формуле
-                // а также еду на более близком расстоянии.
-                break;
-            case globals.behavior.return:
-                if (this.isCarryingFood) {
-                    this.placePheromones();
-                }
-                if (this.travelSteps.length > 0) {//Муравьи будут ходить через появившиеся за это время стены на пути домой, потом можно придумать решение, но алгоритм его не предусматривает
-                    let index = this.travelSteps.length - 1;
-                    [this.pos.x, this.pos.y] = this.travelSteps[index];
-                    this.travelSteps.splice(index, 1);
-                }
-                else {
-                    this.isCarryingFood = false;
-                    this.state = globals.behavior.wander;
-                    this.orientation = Math.floor(Math.random() * 8) % 8;
-                    this.travelDistance = 0;
-                }
-                break;
-            default: break;
-        }
-
-    }
-
-}
-
-class Spawner {
-    constructor(initX, initY) {
-        this.pos = { x: initX, y: initY };
-        this.foodLevel = 100;
-        this.updated = false;
-        this.surrounded = false;
-        this.deletionFlag = false;
-    }
-    spawnAnt() {
-        let x = this.pos.x, y = this.pos.y;
-        let xi, yi;
-        for (let delta = 0; delta < Math.min(this.pos.x, this.pos.y, gridSize - this.pos.x, gridSize - this.pos.y, maxSpawnAttemptDistance); ++delta) {
-            for (let dx = -1; dx < 2; ++dx) {
-                for (let dy = -1; dy < 2; ++dy) {
-                    xi = x + delta * dx, yi = y + delta * dy;
-                    if (globals.walkable.includes(grid[xi][yi])) {
-                        ants.push(new Ant(xi, yi));
-                        // cells[xi][yi] = ants[ants.length - 1];
-                        globals.antCount++;
-                        // console.log("Successfuly spawned at " + String(ants[ants.length - 1].pos.x) + " " + String(ants[ants.length - 1].pos.y));
-                        return true;
-                    }
-                }
-            }
-        }
-        console.log("Failed to spawn from " + String(x) + " " + String(y));
-        return false;
-    }
-    update() {
-        if (this.updated) {
-            return false;
-        }
-
-        let isSurrounded = true;
-        let x, y;
-        for (let dx = -1; dx < 2; ++dx) {
-            for (let dy = -1; dy < 2; ++dy) {
-                x = this.pos.x + dx, y = this.pos.y + dy;
-                if (x < 0 || y < 0 || x > gridSize - 1 || y > gridSize - 1 || Math.abs(dx) == Math.abs(dy)) {
-                    continue;
-                }
-                if (grid[x][y] == globals.id.spawner) {
-                    cells[x][y].update();
-                }
-                else if (globals.walkable.includes(grid[x][y])) {
-                    isSurrounded = false;
-                }
-            }
-        }
-        this.surrounded = isSurrounded;
-        this.updated = true;
-    }
-    destroySelf() {
-        grid[this.pos.x][this.pos.y] = globals.id.empty;
-        cells[this.pos.x][this.pos.y] = null;
-        this.deletionFlag = true;
-        globals.spawnerDeletionFlags++;
     }
 }
 
-class Pheromone {
-    constructor(initX, initY, initStrength) {
-        this.pos = { x: initX, y: initY };
-        this.strength = initStrength;
-        // this.orientation = orientation;
+class Cell {
+    constructor(x, y) {
+        this.value = globals.id.empty;
+        this.pos = [x, y];
+        this.parents = [];
+        this.sons = [];
+        this.gVal = null;
+        this.hVal = null;
+        this.fVal = null;
     }
 }
+
+class Alg {
+    constructor() {
+        this.open = [];
+        this.closed = [];
+        this.stepCount = 0;
+    }
+    step() {
+        console.log("algstep");
+    }
+
+}
+alg = new Alg();
 
 function cloneArray(to, from) {
     to = [];
@@ -474,12 +284,10 @@ function createCustomCheckbox(id, checked = false, text = "", onChange = functio
     checkbox.checked = checked;
 
     cbContainer.innerText = String(text);
-    // cbContainer.checked = checked;
     cbContainer.checkbox = checkbox;
-
     cbContainer.appendChild(checkbox);
     cbContainer.appendChild(checkMark);
-    // cbContainer.addEventListener("mousedown", function () { this.checked = checkbox.checked; });
+    // cbContainer.addEventListener("mousedown", function () { console.log(this.checkbox.checked, this.checked) });
     cbContainer.addEventListener("mousedown", onChange);
     globals.htmlIDs.unshift(String(id));
     return cbContainer;
@@ -500,7 +308,7 @@ function initializeCanvas() {
         content.appendChild(canvas);
         // canvas.addEventListener("click", onCanvasClicked);
         canvas.addEventListener("mousedown", onCanvasMouseDown);
-        document.addEventListener("mouseup", function () { globals.toolButtonDown = false; globals.mousepos = []; });
+        document.addEventListener("mouseup", function () { globals.toolButtonDown = false; globals.mousepos = [] });
         canvas.addEventListener("mousemove", onCanvasMouseMove);
         globals.htmlIDs.unshift("grid");
     }
@@ -538,27 +346,16 @@ function initializeParams() {
             text.innerText = name + " ";
             text.style.display = "flex";
             text.style.flexDirection = "column";
-            text.style.userSelect = "none";
             par.appendChild(text);
         }
         par.appendChild(inputContainer);
         parameterDiv.appendChild(par);
     }
-    let antLimitS = createCustomSlider(0, 1000, 'antLimit', "100%", antLimit, function () { antLimit = antLimitS.value; }, (x) => antLimit);
-    let pheromoneRadiusS = createCustomSlider(1, Math.round(gridSize / 10), 'pheromoneRadius', "100%", pheromoneRadius, function () { pheromoneRadius = pheromoneRadiusS.value; }, (x) => pheromoneRadius);
-    let pheromoneInitStrengthS = createCustomSlider(1, 10, 'pheromoneInitStrength', "100%", pheromoneInitStrength, function () { pheromoneInitStrength = pheromoneInitStrengthS.value * 10; }, (x) => pheromoneInitStrength);
-    let pheromoneDecreasePerTickS = createCustomSlider(1, 20, 'pheromoneDecrease', "100%", pheromoneDecreasePerTick, function () { pheromoneDecreasePerTick = pheromoneDecreasePerTickS.value / 10.0; }, (x) => pheromoneDecreasePerTick);
-    let pheromoneExistThresholdS = createCustomSlider(1, 14, 'pheromoneThreshold', "100%", Math.round(pheromoneExistThreshold / 5), function () { pheromoneExistThreshold = pheromoneExistThresholdS.value * 5; }, (x) => pheromoneExistThreshold);
     let updateIntervalS = createCustomSlider(1, 200, 'fpsSlider', "100%", Math.round(1000 / updateInterval), function () { changeUpdateInterval(Math.round(1000 / updateIntervalS.value)); }, (x) => Math.round(1000 / updateInterval));
-
-    addParameter("Ant Limit", antLimitS);
+    updateIntervalS.style.minWidth = "175px";
     addParameter("Desired TPS", updateIntervalS);
-    addParameter("Pheromone Initial Strength", pheromoneInitStrengthS);
-    addParameter("Pheromone Spread Radius", pheromoneRadiusS);
-    addParameter("Pheromone Decrease per Tick", pheromoneDecreasePerTickS);
-    addParameter("Pheromone Exist Threshold", pheromoneExistThresholdS);
-    addParameter(null, createCustomCheckbox('bloomCb', globals.bloom, "Bloom", function () { this.checkbox.checked ? context.disableBloom() : context.enableBloom(); }));
-    addParameter(null, createCustomCheckbox('mouselagCb', globals.mouseLagComp, "Fix Mouse Lag", function () { globals.mouseLagComp = !this.checkbox.checked; }));
+    addParameter(null, createCustomCheckbox('bloomCb', false, "Bloom", function () { this.checkbox.checked ? context.disableBloom() : context.enableBloom(); }));
+    addParameter(null, createCustomCheckbox('generate', false, "Generate Maze", function () { this.checkbox.checked = true; grid.clearGrid(); grid.genMaze(); }));
 
     content.appendChild(parameterDiv);
 }
@@ -602,7 +399,7 @@ function initializeControls() {
         img.id = element;
         img.addEventListener("mousedown", toolSelectionClick);
         if (element == "eraser") {
-            img.addEventListener("dblclick", function () { antExit(); antStart(); });
+            img.addEventListener("dblclick", function () { exit(); start(); });
         }
         img.ondragstart = function () { return false; };
         img.style.width = controlSize;
@@ -660,26 +457,32 @@ function removeElements() {
 }
 
 function initialize() {
-    grid = [];
-    gridBuffer = [];
-    antSpawners = [];
-    ants = [];
-    cells = [];
     computedStyle = getComputedStyle(document.body);
     for (let x = 0; x < gridSize; ++x) {
         grid[x] = [];
-        gridBuffer[x] = [];
-        cells[x] = [];
         for (let y = 0; y < gridSize; ++y) {
-            grid[x][y] = globals.id.empty;
-            gridBuffer[x][y] = globals.id.empty;
-            cells[x][y] = null;
+            grid[x][y] = new Cell(x, y);
         }
     }
+
     registerCustomSlider();
     registerCustomCheckbox();
     initializeCanvas();
     initializeControls();
+}
+
+grid.clearGrid = function () {
+    for (let x = 0; x < gridSize; ++x) {
+        grid[x] = [];
+        for (let y = 0; y < gridSize; ++y) {
+            grid[x][y] = new Cell(x, y);
+        }
+    }
+}
+
+grid.genMaze = function () {
+    console.log("generating maze");
+
 }
 
 function draw() {
@@ -697,40 +500,23 @@ function draw() {
         }
     }
 
-
-
     fill(0, 0, canvasWidth, canvasHeight, globals.colorsExperimental[globals.id.empty]);
 
     for (let x = 0; x < gridSize; ++x) {
         for (let y = 0; y < gridSize; ++y) {
-            if (globals.staticDrawable.includes(grid[x][y])) {
-                fill(x * cellWidth, y * cellHeight, cellWidth, cellHeight, globals.colorsExperimental[grid[x][y]]);
-            }
+            fill(x * cellWidth, y * cellHeight, cellWidth, cellHeight, globals.colorsExperimental[grid[x][y].value]);
         }
     }
 
-    if (showPheromones) {
-        let colorCoeff;
-        for (let index = 0; index < pheromones.length; ++index) {
-            colorCoeff = pheromones[index].strength / pheromoneInitStrength * 255;
-            fill(pheromones[index].pos.x * cellWidth, pheromones[index].pos.y * cellHeight, cellWidth, cellHeight, { r: colorCoeff * 0.4, g: colorCoeff * 0.5, b: colorCoeff, a: Math.sin(colorCoeff / 300) * 255 });
-        }
-    }
-
-    for (let index = 0; index < ants.length; ++index) {
-        fill(ants[index].pos.x * cellWidth, ants[index].pos.y * cellHeight, cellWidth, cellHeight, globals.colorsExperimental[globals.id.ant]);
-    }
-
-    // cloneArray(gridBuffer, grid);
     context.putImageData(drawImage, 0, 0);//Swap ДБ
 }
 
 function update() {
     if (globals.paused) {
+        draw();
         return true;
     }
-    antLogic();
-    pheromoneTick();
+    alg.step();
     draw();
 }
 
@@ -741,26 +527,70 @@ function placeCellCluster(x, y) {
     let up = Math.min(y + globals.toolSize, gridSize - 1);
     for (let xi = left; xi < right; ++xi) {
         for (let yi = YarikDown; yi < up; ++yi) {
-            if (grid[xi][yi] == globals.id.spawner) {
-                cells[xi][yi].destroySelf();
-            }
             switch (globals.selectedTool) {
-                case 1:
-                    antSpawners.push(new Spawner(xi, yi));
-                    cells[xi][yi] = antSpawners[antSpawners.length - 1];
-                    grid[xi][yi] = globals.id.spawner;
-                    // console.log(String(xi) + " " + String(yi));
-                    break;
-                case 0:
-                    grid[xi][yi] = globals.selectedTool;
-                    cells[xi][yi] = null;
-                    break;
+                // case 1:
+                //     grid[xi][yi] = globals.id.spawner;
+                //     break;
+                // case 0:
+                //     grid[xi][yi] = globals.selectedTool;
+                //     break;
                 default:
-                    grid[xi][yi] = globals.selectedTool;
+                    grid[xi][yi].value = globals.selectedTool;
                     break;
             }
         }
     }
+}
+
+function onCanvasMouseMove(event) {
+    if (!globals.toolButtonDown) {
+        return false;
+    }
+    let rect = event.target.getBoundingClientRect();
+    let x = Math.floor((event.clientX - rect.left) / cellWidth), y = Math.floor((event.clientY - rect.top) / cellHeight);
+    if (globals.shiftKeyDown) {
+        if (Math.abs(globals.shiftInitPos.x - x) > Math.abs(globals.shiftInitPos.y - y)) {
+            y = globals.shiftInitPos.y;
+        }
+        else {
+            x = globals.shiftInitPos.x;
+        }
+    }
+    // if (globals.mousepos.length > 0) {
+    //     let beginX = Math.min(globals.mousepos[0], x), beginY = Math.min(globals.mousepos[1], y);
+    //     let endX = Math.max(globals.mousepos[0], x), endY = Math.max(globals.mousepos[1], y);
+    //     let c = 0;
+    //     // console.log("X: ", beginX, endX);
+    //     // console.log("Y: ", beginY, endY);
+    //     for (let lineY = beginY; lineY < endY && c < 100; ++lineY) {
+    //         for (let lineX = beginX; lineX < endX && c < 100; ++lineX) {
+    //             lineX = (lineY - beginY) * (endX - beginX) / (endY - beginY) + beginX;
+    //             // console.log(lineX, lineY);
+    //             if (lineX >= gridSize || lineY >= gridSize) {
+    //                 return;
+    //             }
+    //             placeCellCluster(lineX, lineY);
+    //             c++
+    //         }
+    //     }
+    // }
+    // globals.mousepos = [x, y];
+    // placeCellCluster(x, y);
+    //console.log(String(Math.floor((event.pageX - this.offsetLeft) / cellWidth)) + " " + String(Math.floor((event.pageY - this.offsetTop) / cellHeight)));
+    if (globals.mousepos) {
+        plotLine(x, y, globals.mousepos[0], globals.mousepos[1]);
+    }
+    globals.mousepos = [x, y];
+}
+
+function onCanvasMouseDown(event) {
+    globals.toolButtonDown = true;
+    let rect = event.target.getBoundingClientRect();
+    let x = Math.floor((event.clientX - rect.left) / cellWidth), y = Math.floor((event.clientY - rect.top) / cellHeight);
+    if (globals.shiftKeyDown) {
+        globals.shiftInitPos = { x: x, y: y };
+    }
+    placeCellCluster(x, y);
 }
 
 function plotLine(x0, y0, x1, y1) {
@@ -820,39 +650,6 @@ function plotLineHigh(x0, y0, x1, y1) {
     }
 }
 
-function onCanvasMouseMove(event) {
-    if (!globals.toolButtonDown) {
-        return false;
-    }
-    let rect = event.target.getBoundingClientRect();
-    let x = Math.floor((event.clientX - rect.left) / cellWidth), y = Math.floor((event.clientY - rect.top) / cellHeight);
-    if (globals.shiftKeyDown) {
-        if (Math.abs(globals.shiftInitPos.x - x) > Math.abs(globals.shiftInitPos.y - y)) {
-            y = globals.shiftInitPos.y;
-        }
-        else {
-            x = globals.shiftInitPos.x;
-        }
-    }
-    if (globals.mouseLagComp) {
-        plotLine(x, y, globals.mousepos[0], globals.mousepos[1]);
-        globals.mousepos = [x, y];
-    }
-    placeCellCluster(x, y);
-    //console.log(String(Math.floor((event.pageX - this.offsetLeft) / cellWidth)) + " " + String(Math.floor((event.pageY - this.offsetTop) / cellHeight)));
-
-}
-
-function onCanvasMouseDown(event) {
-    globals.toolButtonDown = true;
-    let rect = event.target.getBoundingClientRect();
-    let x = Math.floor((event.clientX - rect.left) / cellWidth), y = Math.floor((event.clientY - rect.top) / cellHeight);
-    if (globals.shiftKeyDown) {
-        globals.shiftInitPos = { x: x, y: y };
-    }
-    placeCellCluster(x, y);
-}
-
 function onKeyDown(event) {
     globals.shiftKeyDown = (/Shift/.test(event.code));
     if (/Digit[1234]/.test(event.code)) {
@@ -907,78 +704,19 @@ function toolSelectionClick(event) {
     console.log(globals.htmlControlsIDs[globals.selectedTool - 1]);
 }
 
-function antLogic() {
-    for (let index = 0; index < ants.length; ++index) {
-        ants[index].turn();
-    }
-
-    if (globals.antCount < antLimit && antSpawners.length > 0 && Math.random() < antSpawnChance) {
-        let num = Math.floor(Math.random() * antSpawners.length * 3) % antSpawners.length;
-        if (antSpawners[num].deletionFlag) {
-            do {
-                antSpawners.splice(num, 1);
-                num = Math.floor(Math.random() * antSpawners.length * 3) % antSpawners.length;
-            }
-            while (antSpawners.length > 0 && (antSpawners[num].deletionFlag));
-        }
-        if (antSpawners.length > 0 && !antSpawners[num].deletionFlag && !antSpawners[num].isSurrounded) {
-            antSpawners[num].spawnAnt();
-        }
-    } else if (globals.antCount > antLimit) {
-        while (Math.random() < antDespawnRate && globals.antCount > antLimit && ants.length > 0) {
-            ants.splice(Math.floor(Math.random() * ants.length * 3) % ants.length, 1);
-            globals.antCount--;
-        }
-    }
-    // signal
-    // for (var x = 0; x < gridSize; x = x + 1) {
-    //     for (var y = 0; y < gridSize; ++y) {
-    //         // adjust reference
-    //         grid[x][y].ant = gridBuffer[x][y].ant;
-    //         if (grid[x][y].has_ant() && grid[x][y].ant.isCarryingFood) {
-    //             boundedX = get_bounded_index(x);
-    //             boundedY = get_bounded_index(y);
-    //             var signal_strength = 1 - Math.pow(0.5, 1 / calc_distance(x, y, boundedX, boundedY));
-    //             grid[boundedX][boundedY].signal += signal_strength;
-    //             // is the ant near the nest with food? drop food
-    //             if (i < 5 && y < 5) {
-    //                 grid[x][y].ant.isCarryingFood = false;
-    //             }
-    //         }
-    //         else {
-    //             grid[x][y].signal *= 0.95;
-    //         }
-    //         if (grid[x][y].signal < 0.05) {
-    //             grid[x][y].signal = 0;
-    //         }
-    //     }
-    // }    
-}
-
-function pheromoneTick() {
-    for (let index = 0; index < pheromones.length; ++index) {
-        pheromones[index].strength -= pheromoneDecreasePerTick;
-        if (pheromones[index].strength < pheromoneExistThreshold) {
-            cells[pheromones[index].pos.x][pheromones[index].pos.y] = null;
-            grid[pheromones[index].pos.x][pheromones[index].pos.y] = globals.id.empty;
-            pheromones.splice(index, 1);
-        }
-    }
-}
-
 function changeUpdateInterval(newUpdInt) {
     clearInterval(updateFunctionIntervalId);
     updateInterval = newUpdInt;
-    updateFunctionIntervalId = setInterval(globals.paused == true ? draw : update, updateInterval);
+    updateFunctionIntervalId = setInterval(globals.paused ? draw : update, updateInterval);
 }
 
-function pauseAnts() {
+function pause() {
     clearInterval(updateFunctionIntervalId);
     updateFunctionIntervalId = setInterval(draw, updateInterval);
     globals.paused = true;
 }
 
-function resumeAnts() {
+function resume() {
     clearInterval(updateFunctionIntervalId);
     updateFunctionIntervalId = setInterval(update, updateInterval);
     globals.paused = false;
@@ -986,33 +724,29 @@ function resumeAnts() {
 
 function onPauseButtonClick() {
     if (globals.paused) {
-        resumeAnts();
+        resume();
         document.getElementById("pause").src = srcPath + "pause.png";
     }
     else {
-        pauseAnts();
+        pause();
         document.getElementById("pause").src = srcPath + "resume.png";
     }
 }
 
-function antStart() {
+function start() {
+    globals = new Globals();
     initialize();
     updateFunctionIntervalId = setInterval(update, updateInterval);
 }
 
-function antExit() {
+function exit() {
     removeElements();
     clearInterval(updateFunctionIntervalId);
     grid = [];
-    gridBuffer = [];
-    antSpawners = [];
-    ants = [];
-    cells = [];
-    pheromones = [];
-    globals = new Globals();
+    globals = [];
 }
 
-antStart();
+start();
 
 
 
