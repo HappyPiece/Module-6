@@ -90,10 +90,6 @@ p {
   display: flex;
 }
 
-#upperPanel:hover .movingPanel{
-
-}
-
 #upperPanel:hover .navbar{
   display: flex;
 }
