@@ -430,6 +430,7 @@ function createCustomSlider(min, max, id, width = null, value = 0, onChange = fu
         slider.addEventListener("mouseover", onSliderMouseOver);
         slider.addEventListener("mouseleave", function () { popup.style.display = "none"; });
         slider.addEventListener("mousemove", onSliderMouseMove);
+        slider.addEventListener("mouseup", onSliderMouseMove);
 
         function onSliderMouseOver(event) {
             let x = event.clientX + window.scrollX - 2, y = event.clientY + window.scrollY + 13;
@@ -443,15 +444,16 @@ function createCustomSlider(min, max, id, width = null, value = 0, onChange = fu
         }
         function onSliderMouseMove(event) {
             let x = event.clientX, y = event.clientY;
-            // let rect = event.target.getBoundingClientRect();
-            // let thumbX = rect.left + Math.max(Number(slider.value) / max * Math.round(rect.right - rect.left - sliderThumbSize / 2), 0);
-            // if (!(x > thumbX && x < thumbX + sliderThumbSize)) {
-            //     popup.style.display = "none";
-            //     return true;
-            // }
+            let rect = event.target.getBoundingClientRect();
+            let thumbX = rect.left + Math.max(Number(slider.value) / (max - min) * (rect.right - rect.left - sliderThumbSize - 2), 0);
+            if (!(x >= thumbX && x < thumbX + sliderThumbSize)) {
+                popup.style.display = "none";
+                return true;
+            }
             popup.style.left = String(x + window.scrollX - 2) + "px";
             popup.style.top = String(y + window.scrollY + 13) + "px";
             popup.innerHTML = String(popUpValue());
+            popup.style.display = "block";
         }
     }
     return slider;
