@@ -76,14 +76,14 @@ function getImage() {
                 document.write("<script src='./clustering.js'></script>");
                 break;
             case 2:
-                image.src = "./resources/hacker.gif";
+                image.src = "./resources/gachimuchi/hacker.gif";
                 document.getElementById("content").append(image);
                 break;
             case 3:
                 document.write("<script src='ants.js'></script>");
                 break;
             case 4:
-                image.src = "./resources/rambo.gif";
+                image.src = "./resources/gachimuchi/rambo.gif";
                 document.getElementById("content").append(image);
                 break;
             case 5:
