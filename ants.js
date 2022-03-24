@@ -538,6 +538,7 @@ function initializeParams() {
             text.innerText = name + " ";
             text.style.display = "flex";
             text.style.flexDirection = "column";
+            text.style.userSelect = "none";
             par.appendChild(text);
         }
         par.appendChild(inputContainer);
