@@ -83,26 +83,26 @@ function getImage()
         switch(Number(id))
         {
             case 0:
-                image.src = "./resources/paladins.gif";
+                image.src = "./resources/gachimuchi/paladins.gif";
                 document.getElementById("content").append(image);
                 break;
             case 1:
-                image.src = "./resources/call.gif";
+                image.src = "./resources/gachimuchi/call.gif";
                 document.getElementById("content").append(image);
                 break;
             case 2:
-                image.src = "./resources/hacker.gif";
+                image.src = "./resources/gachimuchi/hacker.gif";
                 document.getElementById("content").append(image);
                 break;
             case 3:
                 document.write("<script src='ants.js'></script>");
                 break;
             case 4:
-                image.src = "./resources/rambo.gif";
+                image.src = "./resources/gachimuchi/rambo.gif";
                 document.getElementById("content").append(image);
                 break;
             default:
-                image.src = "./resources/gachi-fist.gif";
+                image.src = "./resources/gachimuchi/gachi-fist.gif";
                 document.getElementById("content").append(image);
         }
     }
