@@ -73,12 +73,7 @@ function getImage() {
                 document.write("<script src='./scripts/astar.js'></script>");
                 break;
             case 1:
-<<<<<<< HEAD
                 document.write("<script src='./clustering.js'></script>");
-=======
-                image.src = "./resources/call.gif";
-                document.getElementById("content").append(image);
->>>>>>> 502857b8d4ca4c8da7976415aac8ff9b2d39be52
                 break;
             case 2:
                 image.src = "./resources/hacker.gif";
