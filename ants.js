@@ -21,7 +21,7 @@ var antDespawnRate = 0.7;
 
 var gridSize = 150;
 var grid = [];
-var gridBuffer = [];
+// var gridBuffer = [];
 var antSpawners = [];
 var ants = [];
 var cells = []; //Хранит указатели на все объекты-содержимое (пока это только муравьи и спавнеры, причем муравьям идентификация не нужна, а значит и хендлеры не пригодятся)
@@ -41,7 +41,6 @@ var sliderThumbSize = 25;
 class Globals {
     constructor() {
         this.paused = false;
-        this.experimentalRender = true;
         this.id = { empty: 0, spawner: 1, food: 2, wall: 3, ant: 4, pheromone: 5 };
         this.walkable = [this.id.empty, this.id.pheromone, this.id.ant];
         this.staticDrawable = [this.id.food, this.id.wall, this.id.spawner];
@@ -61,6 +60,8 @@ class Globals {
         this.shiftKeyDown = false;
         this.shiftInitPos = { x: 0, y: 0 };
         this.bloom = false;
+        this.mousepos = [];
+        this.mouseLagComp = false;
     }
 }
 var globals = new Globals();
@@ -446,7 +447,6 @@ function createCustomSlider(min, max, id, width = null, value = 0, onChange = fu
             let x = event.clientX, y = event.clientY;
             let rect = event.target.getBoundingClientRect();
             let thumbX = rect.left + Math.max((Number(slider.value) - 1) / (max - min) * (rect.right - rect.left - sliderThumbSize - 2), 0);
-            console.log(Math.max((Number(slider.value) - 1) / (max - min)));
             if (!(x >= thumbX && x < thumbX + sliderThumbSize)) {
                 popup.style.display = "none";
                 return true;
@@ -474,11 +474,12 @@ function createCustomCheckbox(id, checked = false, text = "", onChange = functio
     checkbox.checked = checked;
 
     cbContainer.innerText = String(text);
-    cbContainer.checked = checked;
+    // cbContainer.checked = checked;
+    cbContainer.checkbox = checkbox;
 
     cbContainer.appendChild(checkbox);
     cbContainer.appendChild(checkMark);
-    cbContainer.addEventListener("mousedown", function () { this.checked = checkbox.checked; });
+    // cbContainer.addEventListener("mousedown", function () { this.checked = checkbox.checked; });
     cbContainer.addEventListener("mousedown", onChange);
     globals.htmlIDs.unshift(String(id));
     return cbContainer;
@@ -499,7 +500,7 @@ function initializeCanvas() {
         content.appendChild(canvas);
         // canvas.addEventListener("click", onCanvasClicked);
         canvas.addEventListener("mousedown", onCanvasMouseDown);
-        document.addEventListener("mouseup", function () { globals.toolButtonDown = false; });
+        document.addEventListener("mouseup", function () { globals.toolButtonDown = false; globals.mousepos = []; });
         canvas.addEventListener("mousemove", onCanvasMouseMove);
         globals.htmlIDs.unshift("grid");
     }
@@ -518,6 +519,10 @@ function initializeCanvas() {
         }
     }
 
+    initializeParams();
+}
+
+function initializeParams() {
     let parameterDiv = document.createElement('div');
     parameterDiv.id = "parameters";
     parameterDiv.style.display = "none";
@@ -551,7 +556,8 @@ function initializeCanvas() {
     addParameter("Pheromone Spread Radius", pheromoneRadiusS);
     addParameter("Pheromone Decrease per Tick", pheromoneDecreasePerTickS);
     addParameter("Pheromone Exist Threshold", pheromoneExistThresholdS);
-    addParameter(null, createCustomCheckbox('cb', false, "Bloom", function () { this.checked ? context.disableBloom() : context.enableBloom(); }));
+    addParameter(null, createCustomCheckbox('bloomCb', globals.bloom, "Bloom", function () { this.checkbox.checked ? context.disableBloom() : context.enableBloom(); }));
+    addParameter(null, createCustomCheckbox('mouselagCb', globals.mouseLagComp, "Fix Mouse Lag", function () { globals.mouseLagComp = !this.checkbox.checked; }));
 
     content.appendChild(parameterDiv);
 }
@@ -697,12 +703,6 @@ function draw() {
     for (let x = 0; x < gridSize; ++x) {
         for (let y = 0; y < gridSize; ++y) {
             if (globals.staticDrawable.includes(grid[x][y])) {
-                if (grid[x][y] == globals.id.spawner && cells[x][y].isSurrounded) {
-                    let col = globals.colorsExperimental[grid[x][y]];
-                    col.g -= 100;
-                    col.b -= 100;
-                    fill(x * cellWidth, y * cellHeight, cellWidth, cellHeight, col);
-                }
                 fill(x * cellWidth, y * cellHeight, cellWidth, cellHeight, globals.colorsExperimental[grid[x][y]]);
             }
         }
@@ -720,7 +720,7 @@ function draw() {
         fill(ants[index].pos.x * cellWidth, ants[index].pos.y * cellHeight, cellWidth, cellHeight, globals.colorsExperimental[globals.id.ant]);
     }
 
-    cloneArray(gridBuffer, grid);
+    // cloneArray(gridBuffer, grid);
     context.putImageData(drawImage, 0, 0);//Swap ДБ
 }
 
@@ -762,6 +762,63 @@ function placeCellCluster(x, y) {
     }
 }
 
+function plotLine(x0, y0, x1, y1) {
+    if (Math.abs(y1 - y0) < Math.abs(x1 - x0))
+        if (x0 > x1)
+            plotLineLow(x1, y1, x0, y0)
+        else
+            plotLineLow(x0, y0, x1, y1)
+    else
+        if (y0 > y1)
+            plotLineHigh(x1, y1, x0, y0)
+        else
+            plotLineHigh(x0, y0, x1, y1)
+}
+
+function plotLineLow(x0, y0, x1, y1) {
+    let dx = x1 - x0
+    let dy = y1 - y0
+    let yi = 1
+    if (dy < 0) {
+        yi = -1
+        dy = -dy
+    }
+    let D = (2 * dy) - dx
+    let y = y0;
+
+    for (let x = x0; x < x1; ++x) {
+        placeCellCluster(x, y);
+        if (D > 0) {
+            y += yi;
+            D += 2 * (dy - dx);
+        }
+        else {
+            D += 2 * dy;
+        }
+    }
+}
+
+function plotLineHigh(x0, y0, x1, y1) {
+    let dx = x1 - x0
+    let dy = y1 - y0
+    let xi = 1
+    if (dx < 0) {
+        xi = -1
+        dx = -dx
+    }
+    let D = (2 * dx) - dy
+    x = x0
+    for (let y = y0; y < y1; ++y) {
+        placeCellCluster(x, y);
+        if (D > 0) {
+            x += xi;
+            D += 2 * (dx - dy);
+        } else {
+            D += 2 * dx;
+        }
+    }
+}
+
 function onCanvasMouseMove(event) {
     if (!globals.toolButtonDown) {
         return false;
@@ -775,6 +832,10 @@ function onCanvasMouseMove(event) {
         else {
             x = globals.shiftInitPos.x;
         }
+    }
+    if (globals.mouseLagComp) {
+        plotLine(x, y, globals.mousepos[0], globals.mousepos[1]);
+        globals.mousepos = [x, y];
     }
     placeCellCluster(x, y);
     //console.log(String(Math.floor((event.pageX - this.offsetLeft) / cellWidth)) + " " + String(Math.floor((event.pageY - this.offsetTop) / cellHeight)));
@@ -907,7 +968,7 @@ function pheromoneTick() {
 function changeUpdateInterval(newUpdInt) {
     clearInterval(updateFunctionIntervalId);
     updateInterval = newUpdInt;
-    updateFunctionIntervalId = setInterval(update, updateInterval);
+    updateFunctionIntervalId = setInterval(globals.paused == true ? draw : update, updateInterval);
 }
 
 function pauseAnts() {
