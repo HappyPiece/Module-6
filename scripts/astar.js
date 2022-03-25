@@ -1,16 +1,14 @@
 var srcPath = "./resources/astar/";
 var canvasWidth = 600;
 var canvasHeight = 600;
-var controlSize = "100px";
-var controlSizeShrunk = "80px";
-var toolMaxSize = 7;
-var toolMinSize = 1;
+var controlSize = "80px";
+var controlSizeShrunk = "70px";
 
-var gridSize = 150;
+var gridSize = 75;
 var grid = [];
 var cellWidth = canvasWidth / gridSize;
 var cellHeight = canvasHeight / gridSize;
-var updateInterval = 80;
+var updateInterval = 125;
 var updateFunctionIntervalId;
 var computedStyle;
 var context;//2d context
@@ -19,24 +17,25 @@ var drawBuffer;//сама data буффера - height*with*4
 var sliderBackgroundColor = "#242424";
 var sliderThumbColor = "#04AA6D";
 var sliderThumbSize = 25;
+var algSteps = 1;
 var globals;
 
 class Globals {
     constructor() {
         this.paused = true;
-        this.id = { empty: 0, closed: 1, open: 2, wall: 3 };
+        this.id = { empty: 0, wall: 1, start: 2, end: 3, visited: 4, open: 5 };
         // this.walkable = [this.id.empty, this.id.pheromone, this.id.ant];
         // this.staticDrawable = [this.id.food, this.id.wall, this.id.spawner];
-        // this.tools = { empty: 0, spawner: 1, food: 2, wall: 3 };
-        this.colors = ["--onBackground", "--error", "#3fFF20", "#000000"];
+        this.tools = { start: 0, end: 1, wall: 2, eraser: 3 };
+        this.colors = ["#2a2a2a", "--background", "#3fFF20", "#FF0000", "#0066CC", "#00ff84"];
         this.colorsExperimental = [];
-        this.htmlControlsIDs = ["start", "end", "eraser"];
+        this.htmlControlsIDs = ["start", "end", "wall", "eraser"];
         this.htmlIDs = [];
-        this.selectedTool = 0;
+        this.selectedTool = this.tools.start;
         this.selectedToolElement = null;
         this.eraseClickTimestamp = null;
         this.toolButtonDown = false;
-        this.toolSize = 2;
+        this.toolSize = 1;
         this.shiftKeyDown = false;
         this.shiftInitPos = { x: 0, y: 0 };
         this.bloom = false;
@@ -48,22 +47,127 @@ class Cell {
     constructor(x, y) {
         this.value = globals.id.empty;
         this.pos = [x, y];
-        this.parents = [];
-        this.sons = [];
         this.gVal = null;
         this.hVal = null;
         this.fVal = null;
+        this.parent = null;
+        this.isVisited = false;
+        this.isClosed = false;
     }
 }
 
 class Alg {
     constructor() {
         this.open = [];
-        this.closed = [];
         this.stepCount = 0;
+        this.startingPoint = null;
+        this.endingPoint = null;
+        this.distDiag = 14;
+        this.distCells = 10;
+        this.isFinished = false;
     }
+
+    reset() {
+        this.open = [];
+        this.stepCount = 0;
+        if (this.startingPoint) {
+            this.startingPoint.value = globals.id.empty;
+        }
+        if (this.endingPoint) {
+            this.endingPoint.value = globals.id.empty;
+        }
+        this.startingPoint = null;
+        this.endingPoint = null;
+        this.isFinished = false;
+    }
+
+    calcDist(x, y, x1, y1) {
+        let xdiff = Math.abs(x - x1), ydiff = Math.abs(y - y1);
+        if (xdiff < ydiff)
+            return xdiff * this.distDiag + (ydiff - xdiff) * this.distCells;
+        else
+            return ydiff * this.distDiag + (xdiff - ydiff) * this.distCells;
+        // return Math.min(xdiff, ydiff) * this.distDiag + Math.abs(xdiff - ydiff)*this.distCells;
+    }
+
+    iterateNeighbors(cell) {
+        for (let x = cell.pos[0] - 1; x < cell.pos[0] + 2; ++x) {
+            for (let y = cell.pos[1] - 1; y < cell.pos[1] + 2; ++y) {
+                if (x < 0 || x >= gridSize || y < 0 || y >= gridSize || grid[x][y].value == globals.id.wall || x == cell.pos[0] && y == cell.pos[1]) {
+                    continue;
+                }
+                let fVal, gVal, hVal;
+                // gVal = 
+
+                hVal = this.calcDist(x, y, this.endingPoint.pos[0], this.endingPoint.pos[1]);
+                gVal = this.calcDist(x, y, cell.pos[0], cell.pos[1])
+                fVal = gVal + hVal;
+                if (!grid[x][y].isVisited || grid[x][y].fVal && grid[x][y].fVal > fVal) {
+                    grid[x][y].parent = cell;
+                    grid[x][y].hVal = hVal;
+                    grid[x][y].gVal = gVal;
+                    grid[x][y].fVal = fVal;
+                    if (!grid[x][y].isVisited) {
+                        this.open.push(grid[x][y]);
+                        grid[x][y].isVisited = true;
+                        grid[x][y].value = globals.id.open;
+                    }
+                }
+            }
+        }
+    }
+
+    begin() {
+        for (let x = 0; x < gridSize; ++x) {
+            for (let y = 0; y < gridSize; ++y) {
+                grid[x][y].isVisited = false;
+            }
+        }
+        this.open.push(this.startingPoint);
+        document.getElementById("begin").changeText(globals.paused ? "Continue" : "Stop");
+    }
+
     step() {
-        console.log("algstep");
+        if (this.startingPoint == null | this.endingPoint == null) {
+            alert("specify starting and ending points first");
+            pause();
+            return;
+        }
+        if (this.stepCount == 0) {
+            this.begin();
+            this.stepCount++;
+            return;
+        }
+        do {
+            if (this.open.length <= 0) {
+                alert("Couldn't find path");
+                this.startingPoint.value = globals.id.end;
+                pause();
+                document.getElementById('begin').changeText("Restart");
+                this.isFinished = true;
+                return;
+            }
+            let foundIndex = 0;
+            for (let index = 1; index < this.open.length; ++index) {
+                if (this.open[index].fVal < this.open[foundIndex].fVal) {
+                    foundIndex = index;
+                }
+            }
+            let current = this.open[foundIndex];
+            this.open.swapDelete(foundIndex);
+
+            if (current.pos == this.endingPoint.pos) {
+                this.endingPoint.value = globals.id.start;
+                this.startingPoint.value = globals.id.start;
+                pause();
+                document.getElementById('begin').changeText("Restart");
+                this.isFinished = true;
+                return;
+            }
+            this.iterateNeighbors(current);
+            current.value = globals.id.visited;
+            // this.open.sort((a, b) => a.fVal - b.fVal);
+        } while (this.stepCount++ % algSteps);
     }
 
 }
@@ -82,6 +186,11 @@ function cloneArray(to, from) {
 Math.dist = function (x, y, x1, y1) {
     return Math.sqrt(Math.pow(x - x1, 2) + Math.pow(y - y1, 2));
 };
+
+Array.prototype.swapDelete = function (index) {
+    this[index] = this[this.length - 1];
+    this.pop();
+}
 
 function hexToRgb(hex) {
     var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -181,7 +290,7 @@ function registerCustomCheckbox() {
         top: 0;
         left: 0;
         height: 17px;
-        width: 17px;
+        width: 17px;        
         background-color: ${sliderBackgroundColor};
       }
       
@@ -274,19 +383,25 @@ function createCustomCheckbox(id, checked = false, text = "", onChange = functio
     let cbContainer = document.createElement("label");
     let checkbox = document.createElement("input");
     let checkMark = document.createElement("span");
+    let innerText = document.createElement("span");
 
     cbContainer.className = "checkboxContainer";
     checkMark.className = "checkmark";
     checkbox.className = "checkbox";
 
     checkbox.type = "checkbox";
-    checkbox.id = String(id);
     checkbox.checked = checked;
 
-    cbContainer.innerText = String(text);
+    // cbContainer.innerText = String(text);
+    cbContainer.style.fontSize = "2vmin";
     cbContainer.checkbox = checkbox;
+    cbContainer.id = String(id);
+    innerText.textContent = String(text);
+
     cbContainer.appendChild(checkbox);
     cbContainer.appendChild(checkMark);
+    cbContainer.append(innerText);
+    cbContainer.changeText = function (newText) { innerText.textContent = newText; };
     // cbContainer.addEventListener("mousedown", function () { console.log(this.checkbox.checked, this.checked) });
     cbContainer.addEventListener("mousedown", onChange);
     globals.htmlIDs.unshift(String(id));
@@ -296,7 +411,7 @@ function createCustomCheckbox(id, checked = false, text = "", onChange = functio
 function initializeCanvas() {
     let canvas = document.getElementById("grid");
     initializeContent();
-    let content = document.getElementById('content');
+    let cuntent = document.getElementById('content');
     if (canvas == null) {
         canvas = document.createElement('canvas');
         canvas.id = "grid";
@@ -305,7 +420,7 @@ function initializeCanvas() {
         canvas.style.display = "inline";
         canvas.style.border = "0.2vmin solid" + computedStyle.getPropertyValue("--primary");
         // canvas.style.alignSelf = "center";        
-        content.appendChild(canvas);
+        cuntent.appendChild(canvas);
         // canvas.addEventListener("click", onCanvasClicked);
         canvas.addEventListener("mousedown", onCanvasMouseDown);
         document.addEventListener("mouseup", function () { globals.toolButtonDown = false; globals.mousepos = [] });
@@ -353,33 +468,37 @@ function initializeParams() {
     }
     let updateIntervalS = createCustomSlider(1, 200, 'fpsSlider', "100%", Math.round(1000 / updateInterval), function () { changeUpdateInterval(Math.round(1000 / updateIntervalS.value)); }, (x) => Math.round(1000 / updateInterval));
     updateIntervalS.style.minWidth = "175px";
+    let gridSizeS = createCustomSlider(1, 5, 'gridResize', "100%", Math.round(gridSize / 25), function () { resizeGrid(this.value < 5 ? Math.round(this.value * 25) : 600); }, (x) => gridSize);
     addParameter("Desired TPS", updateIntervalS);
+    addParameter("Grid Size", gridSizeS);
     addParameter(null, createCustomCheckbox('bloomCb', false, "Bloom", function () { this.checkbox.checked ? context.disableBloom() : context.enableBloom(); }));
     addParameter(null, createCustomCheckbox('generate', false, "Generate Maze", function () { this.checkbox.checked = true; grid.clearGrid(); grid.genMaze(); }));
+    addParameter(null, createCustomCheckbox('begin', false, "Begin Pathfinding", onStartButton));
 
-    content.appendChild(parameterDiv);
+    document.getElementById('content').appendChild(parameterDiv);
 }
 
 function initializeContent() {
-    let content = document.getElementById('content');
-    if (!content) {
+    let cuntent = document.getElementById('content');
+    if (!cuntent) {
         alert("unable to find div id=content, creating");
-        content = document.createElement("div");
-        document.body.appendChild(content);
+        cuntent = document.createElement("div");
+        document.body.appendChild(cuntent);
         //globals.htmlIDs.unshift("content");
     }
-    content.style.alignContent = "center";
-    content.style.textAlign = "center";
-    content.style.display = "block";
-    content.id = "content";
-    content.ondragstart = function () { return false; };
-    return content;
+    cuntent.style.alignContent = "center";
+    cuntent.style.textAlign = "center";
+    cuntent.style.display = "block";
+    cuntent.style.userSelect = "none";
+    cuntent.id = "content";
+    cuntent.ondragstart = function () { return false; };
+    return cuntent;
 }
 
 function initializeControls() {
-    let content = document.getElementById('content');
-    if (!content) {
-        content = initializeContent();
+    let cuntent = document.getElementById('content');
+    if (!cuntent) {
+        cuntent = initializeContent();
     }
 
     let controls = document.getElementById("controls");
@@ -388,8 +507,16 @@ function initializeControls() {
     }
     controls = document.createElement("div");
     controls.id = "controls";
-    controls.style.display = "block";
+    controls.style.display = "inline-flex";
     controls.style.textAlign = "center";
+    controls.style.marginRight = "3%";
+    // controls.style.marginTop = "2%";
+    // controls.style.position = "fixed";
+    controls.style.flexDirection = "column";
+    controls.style.alignItems = "center";
+    // controls.style.left = "12%";
+    controls.style.verticalAlign = "top";
+
     controls.ondragstart = function () { return false; };
     globals.htmlIDs.unshift("controls");
 
@@ -404,7 +531,7 @@ function initializeControls() {
         img.ondragstart = function () { return false; };
         img.style.width = controlSize;
         img.style.height = controlSize;
-        img.style.display = "inline-block";
+        img.style.display = "block";
         img.style.margin = "10px";
         img.style.userSelect = "none";
         controls.appendChild(img);
@@ -417,27 +544,28 @@ function initializeControls() {
     tools.style.textAlign = "center";
     globals.htmlIDs.unshift("tools");
 
-    let pauseButton = document.createElement("img");
-    pauseButton.src = srcPath + "pause.png";
-    pauseButton.style.height = pauseButton.style.width = "20px";
-    pauseButton.style.display = "inline-block";
-    pauseButton.style.marginLeft = "3px";
-    pauseButton.id = "pause";
-    pauseButton.addEventListener("click", onPauseButtonClick);
+    // let pauseButton = document.createElement("img");
+    // pauseButton.src = srcPath + "pause.png";
+    // pauseButton.style.height = pauseButton.style.width = "20px";
+    // pauseButton.style.display = "inline-block";
+    // pauseButton.style.marginLeft = "3px";
+    // pauseButton.id = "pause";
+    // pauseButton.addEventListener("click", onPauseButtonClick);
 
-    toolSizeSlider = createCustomSlider(toolMinSize, toolMaxSize, 'toolSizeSlider', controlSize * globals.htmlControlsIDs.length, globals.toolSize, function () { globals.toolSize = Number(toolSizeSlider.value); console.log(globals.toolSize) });
+    // toolSizeSlider = createCustomSlider(toolMinSize, toolMaxSize, 'toolSizeSlider', controlSize * globals.htmlControlsIDs.length, globals.toolSize, function () { globals.toolSize = Number(toolSizeSlider.value); console.log(globals.toolSize) });
 
-    tools.appendChild(toolSizeSlider);
-    tools.appendChild(pauseButton);
+    // tools.appendChild(toolSizeSlider);
+    // tools.appendChild(pauseButton);
     controls.appendChild(tools);
-    content.appendChild(controls);
+    //cuntent.insertBefore(controls, document.getElementById('grid'));
+    document.getElementById('parameters').appendChild(controls);
 
     //footer fix
-    let ff = document.createElement('div');
-    ff.display = "block";
-    ff.style.minHeight = String(Math.round(document.getElementsByTagName('footer')[0].clientHeight * 1.1)) + "px";
-    ff.innerHTML = "&nbsp;";
-    controls.appendChild(ff);
+    // let ff = document.createElement('div');
+    // ff.display = "block";
+    // ff.style.minHeight = String(Math.round(document.getElementsByTagName('footer')[0].clientHeight * 1.1)) + "px";
+    // ff.innerHTML = "&nbsp;";
+    // controls.appendChild(ff);
     //    
 
     window.addEventListener("keydown", onKeyDown);
@@ -473,16 +601,61 @@ function initialize() {
 
 grid.clearGrid = function () {
     for (let x = 0; x < gridSize; ++x) {
-        grid[x] = [];
         for (let y = 0; y < gridSize; ++y) {
-            grid[x][y] = new Cell(x, y);
+            if (grid[x][y].value != globals.id.wall && grid[x][y].value != globals.id.empty) {
+                grid[x][y].value = globals.id.empty;
+            }
+            grid[x][y].isVisited = false;
+            grid[x][y].isClosed = false;
         }
     }
 }
 
 grid.genMaze = function () {
     console.log("generating maze");
+    let walls = [], rooms = [];
+    for (let x = 0; x < gridSize; ++x) {
+        for (let y = 0; y < gridSize; ++y) {
+            grid[x][y].value = !(x % 2) | !(y % 2) | x == gridSize - 1 | y == gridSize - 1;
+            if (grid[x][y].value && x % 2 != y % 2) {
+                walls.push(grid[x][y]);
+                grid[x][y].isVisited = false;
+            } else if ((x % 2) * (y % 2)) {
+                rooms.push(grid[x][y]);
+            }
+        }
+    }
+    let includedWalls = [];
+    includedWalls.addRoomWalls = function (room) {
+        for (let x = room.pos[0] - 1; x < room.pos[0] + 2; ++x) {
+            for (let y = room.pos[1] - 1; y < room.pos[1] + 2; ++y) {
+                if (x % 2 == y % 2 || x <= 0 || x >= gridSize - 1 || y <= 0 || y >= gridSize - 1) {
+                    continue;
+                }
+                this.push(grid[x][y]);
+            }
+        }
+    }
 
+    let index = Math.floor(Math.random() * 3 * rooms.length) % rooms.length;
+    rooms[index].isVisited = true;
+    includedWalls.addRoomWalls(rooms[index]);
+    let wall, room1, room2;
+    while (includedWalls.length) {
+        index = Math.floor(Math.random() * 3 * includedWalls.length) % includedWalls.length;
+        wall = includedWalls[index];
+        room1 = grid[wall.pos[0] - !(wall.pos[0] % 2)][wall.pos[1] - !(wall.pos[1] % 2)];
+        room2 = grid[wall.pos[0] + !(wall.pos[0] % 2)][wall.pos[1] + !(wall.pos[1] % 2)];
+        if (room1.isVisited != room2.isVisited) {
+            wall.value = globals.id.empty;
+            if (!room2.isVisited) {
+                room1 = room2;
+            }
+            room1.isVisited = true;
+            includedWalls.addRoomWalls(room1);
+        }
+        includedWalls.splice(index, 1);
+    }
 }
 
 function draw() {
@@ -504,7 +677,9 @@ function draw() {
 
     for (let x = 0; x < gridSize; ++x) {
         for (let y = 0; y < gridSize; ++y) {
-            fill(x * cellWidth, y * cellHeight, cellWidth, cellHeight, globals.colorsExperimental[grid[x][y].value]);
+            if (grid[x][y].value != globals.id.empty) {
+                fill(x * cellWidth, y * cellHeight, cellWidth, cellHeight, globals.colorsExperimental[grid[x][y].value]);
+            }
         }
     }
 
@@ -512,34 +687,48 @@ function draw() {
 }
 
 function update() {
-    if (globals.paused) {
-        draw();
-        return true;
-    }
     alg.step();
     draw();
 }
 
 function placeCellCluster(x, y) {
-    let left = Math.max(x - globals.toolSize, 0);
-    let right = Math.min(x + globals.toolSize, gridSize - 1);
-    let YarikDown = Math.max(y - globals.toolSize, 0);
-    let up = Math.min(y + globals.toolSize, gridSize - 1);
-    for (let xi = left; xi < right; ++xi) {
-        for (let yi = YarikDown; yi < up; ++yi) {
-            switch (globals.selectedTool) {
-                // case 1:
-                //     grid[xi][yi] = globals.id.spawner;
-                //     break;
-                // case 0:
-                //     grid[xi][yi] = globals.selectedTool;
-                //     break;
-                default:
-                    grid[xi][yi].value = globals.selectedTool;
-                    break;
-            }
-        }
+    // if (alg.stepCount && !globals.paused && (grid[x][y].value == globals.id.start || grid[x][y].value == globals.id.end)) {
+    //     alert("stop the algorithm to change the environment");
+    //     return;
+    // }
+    if (grid[x][y].value == globals.id.start) {
+        alg.startingPoint = null;
+    } else if (grid[x][y].value == globals.id.end) {
+        alg.endingPoint = null;
     }
+
+    switch (globals.selectedTool) {
+        case globals.id.start:
+            if (alg.startingPoint && alg.startingPoint.value == globals.id.start) {
+                alg.startingPoint.value = globals.id.empty;
+            }
+            grid[x][y].value = globals.id.start;
+            alg.startingPoint = grid[x][y];
+            break;
+        case globals.id.end:
+            if (alg.endingPoint && alg.endingPoint.value == globals.id.start) {
+                alg.endingPoint.value = globals.id.empty;
+            }
+            grid[x][y].value = globals.id.end;
+            alg.endingPoint = grid[x][y];
+            break;
+        case globals.id.wall:
+            grid[x][y].value = globals.id.wall;
+            break;
+        case globals.id.empty:
+            grid[x][y].value = globals.id.empty;
+            break;
+        default:
+            // grid[x][y].value = globals.selectedTool;
+            alert("unknown tool");
+            break;
+    }
+
 }
 
 function onCanvasMouseMove(event) {
@@ -580,6 +769,7 @@ function onCanvasMouseMove(event) {
     if (globals.mousepos) {
         plotLine(x, y, globals.mousepos[0], globals.mousepos[1]);
     }
+    placeCellCluster(x, y);
     globals.mousepos = [x, y];
 }
 
@@ -591,6 +781,22 @@ function onCanvasMouseDown(event) {
         globals.shiftInitPos = { x: x, y: y };
     }
     placeCellCluster(x, y);
+}
+
+function onStartButton() {
+    this.checkbox.checked = true;
+    if (alg.isFinished) {
+        alg.reset();
+        grid.clearGrid();
+        pause();
+        return;
+    }
+    if (globals.paused) {
+        resume();
+    } else {
+        pause();
+    }
+
 }
 
 function plotLine(x0, y0, x1, y1) {
@@ -653,21 +859,20 @@ function plotLineHigh(x0, y0, x1, y1) {
 function onKeyDown(event) {
     globals.shiftKeyDown = (/Shift/.test(event.code));
     if (/Digit[1234]/.test(event.code)) {
-        let num = Number(String(event.code)[5]);
-        globals.selectedTool = (num) % globals.htmlControlsIDs.length;
-
-        if (globals.selectedToolElement) {
-            globals.selectedToolElement.style.width = globals.selectedToolElement.style.height = controlSize;
-        }
-        globals.selectedToolElement = document.getElementById(globals.htmlControlsIDs[num - 1]);
-        globals.selectedToolElement.style.width = globals.selectedToolElement.style.height = controlSizeShrunk;
+        selectTool(Number(String(event.code)[5]) - 1);
     }
     else if (/Space/.test(event.code)) {
-        onPauseButtonClick();
+        // onPauseButtonClick();
+        if (globals.paused) {
+            alg.step();
+        }
+        else {
+            pause();
+        }
         event.preventDefault();
     } else if (/Tab/.test(event.code)) {
-        let params = document.getElementById("parameters");
         event.preventDefault();
+        let params = document.getElementById("parameters");
         if (params.updateIntervalId != null) {
             return true;
         }
@@ -693,15 +898,33 @@ function paramsFade(params) {
 
 function toolSelectionClick(event) {
     let target = event.target;
-    globals.selectedTool = (globals.htmlControlsIDs.indexOf(event.target.id) + 1) % globals.htmlControlsIDs.length;
+    selectTool(globals.htmlControlsIDs.indexOf(event.target.id));
+}
+
+function selectTool(toolId) {
+    switch (toolId) {
+        case globals.tools.start:
+            globals.selectedTool = globals.id.start;
+            break;
+        case globals.tools.end:
+            globals.selectedTool = globals.id.end;
+            break;
+        case globals.tools.wall:
+            globals.selectedTool = globals.id.wall;
+            break;
+        case globals.tools.eraser:
+            globals.selectedTool = globals.id.empty;
+            break;
+        default: break;
+    }
+    console.log(globals.selectedTool);
 
     if (globals.selectedToolElement) {
         globals.selectedToolElement.style.width = globals.selectedToolElement.style.height = controlSize;
     }
-    globals.selectedToolElement = target;
-    target.style.width = target.style.height = controlSizeShrunk;
+    globals.selectedToolElement = document.getElementById(globals.htmlControlsIDs[toolId]);
+    globals.selectedToolElement.style.width = globals.selectedToolElement.style.height = controlSizeShrunk;
 
-    console.log(globals.htmlControlsIDs[globals.selectedTool - 1]);
 }
 
 function changeUpdateInterval(newUpdInt) {
@@ -710,40 +933,57 @@ function changeUpdateInterval(newUpdInt) {
     updateFunctionIntervalId = setInterval(globals.paused ? draw : update, updateInterval);
 }
 
-function pause() {
-    clearInterval(updateFunctionIntervalId);
-    updateFunctionIntervalId = setInterval(draw, updateInterval);
-    globals.paused = true;
+function resizeGrid(newSize) {
+    let x = 0, y = gridSize;
+
+    while (newSize > grid.length) {
+        y = gridSize;
+        if (x >= gridSize) {
+            grid.push([]);
+            y = 0;
+        }
+        while (newSize > grid[x].length) {
+            grid[x].push(new Cell(x, y));
+            y++;
+        }
+        x++
+    }
+
+    grid.length = newSize;
+    if (newSize < gridSize) {
+        for (let x = 0; x < newSize; ++x) {
+            grid[x].length = newSize;
+        }
+    }
+    gridSize = newSize;
+
+    cellWidth = Math.round(canvasWidth / gridSize);
+    cellHeight = Math.round(canvasHeight / gridSize);
 }
 
 function resume() {
-    clearInterval(updateFunctionIntervalId);
-    updateFunctionIntervalId = setInterval(update, updateInterval);
     globals.paused = false;
+    changeUpdateInterval(updateInterval);
+    document.getElementById("begin").changeText("Stop");
 }
 
-function onPauseButtonClick() {
-    if (globals.paused) {
-        resume();
-        document.getElementById("pause").src = srcPath + "pause.png";
-    }
-    else {
-        pause();
-        document.getElementById("pause").src = srcPath + "resume.png";
-    }
+function pause() {
+    globals.paused = true;
+    clearInterval(updateFunctionIntervalId);
+    updateFunctionIntervalId = setInterval(draw, updateInterval);
+    document.getElementById("begin").changeText("Continue");
 }
 
 function start() {
     globals = new Globals();
     initialize();
-    updateFunctionIntervalId = setInterval(update, updateInterval);
+    alg = new Alg();
+    updateFunctionIntervalId = setInterval(draw, updateInterval);
 }
 
 function exit() {
     removeElements();
     clearInterval(updateFunctionIntervalId);
-    grid = [];
-    globals = [];
 }
 
 start();
