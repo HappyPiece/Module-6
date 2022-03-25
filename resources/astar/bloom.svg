@@ -7,7 +7,7 @@
        id="bloom">
       <feGaussianBlur
          in="SourceGraphic"
-         stdDeviation="5" />
+         stdDeviation="3" />
       <feComposite
          in2="SourceGraphic"
          operator="arithmetic" k2="0.8" k3="1" />
