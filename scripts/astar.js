@@ -10,6 +10,7 @@ var cellWidth = canvasWidth / gridSize;
 var cellHeight = canvasHeight / gridSize;
 var updateInterval = 125;
 var updateFunctionIntervalId;
+var prioritizeOpenDistance = false;
 var computedStyle;
 var context;//2d context
 var drawImage;//буфер рендера
@@ -18,14 +19,13 @@ var sliderBackgroundColor = "#242424";
 var sliderThumbColor = "#04AA6D";
 var sliderThumbSize = 25;
 var algSteps = 1;
+var dynamicSteps = false;
 var globals;
 
 class Globals {
     constructor() {
         this.paused = true;
         this.id = { empty: 0, wall: 1, start: 2, end: 3, visited: 4, open: 5, path: 6 };
-        // this.walkable = [this.id.empty, this.id.pheromone, this.id.ant];
-        // this.staticDrawable = [this.id.food, this.id.wall, this.id.spawner];
         this.tools = { start: 0, end: 1, wall: 2, eraser: 3 };
         this.colors = ["#2a2a2a", "--background", "#3fFF20", "--error", "--primary", "#facf46", "--pheromones"];
         this.colorsExperimental = [];
@@ -49,10 +49,10 @@ class Cell {
         this.pos = [x, y];
         this.gVal = null;
         this.hVal = null;
-        this.fVal = null;
+        this.cost = null;
         this.parent = null;
         this.isVisited = false;
-        this.isClosed = false;
+        this.isEvaluated = false;
     }
 }
 
@@ -83,13 +83,21 @@ class Alg {
         this.isFinished = false;
     }
 
-    calcDist(x, y, x1, y1) {
+    calcDist(x, y, x1, y1) {//среднее из расстояния манхаттэна и среза по диагонали квадрата дает адекватные сокращения пути на открытом пространстве
+        //(в таком случае он все равно ставит в приоритет прямые линии, однако на расстоянии диагонали квадрата между точками будет использовать ее)
+
+        //но алгоритм становится медленнее и в лабиринтах это мало влияет, так как увеличивает область поиска, требуя при этом больше банальных вычислений
+        //Вообще баланс между областью поиска и скоростью достижения цели - краеугольный камень алгоритма
+
+        //для простоты и скорости убрать усреднение с alt
         let xdiff = Math.abs(x - x1), ydiff = Math.abs(y - y1);
+        let alt = xdiff * this.distCells + ydiff * this.distCells;
         if (xdiff < ydiff)
-            return xdiff * this.distDiag + (ydiff - xdiff) * this.distCells;
+            return (xdiff * this.distDiag + (ydiff - xdiff) * this.distCells + alt) / 2;
         else
-            return ydiff * this.distDiag + (xdiff - ydiff) * this.distCells;
-        // return Math.min(xdiff, ydiff) * this.distDiag + Math.abs(xdiff - ydiff)*this.distCells;
+            return (ydiff * this.distDiag + (xdiff - ydiff) * this.distCells + alt) / 2;
+
+        // return Math.ceil(Math.dist(x, y, x1, y1)) * 10;
     }
 
     cantAccess(x1, y1, x2, y2) {
@@ -99,20 +107,19 @@ class Alg {
     iterateNeighbors(cell) {
         for (let x = cell.pos[0] - 1; x < cell.pos[0] + 2; ++x) {
             for (let y = cell.pos[1] - 1; y < cell.pos[1] + 2; ++y) {
-                if (x < 0 || x >= gridSize || y < 0 || y >= gridSize || grid[x][y].value == globals.id.wall || grid[x][y].isClosed || this.cantAccess(x, y, cell.pos[0], cell.pos[1]) || x == cell.pos[0] && y == cell.pos[1]) {
+                if (x < 0 || x >= gridSize || y < 0 || y >= gridSize || x == cell.pos[0] && y == cell.pos[1] || grid[x][y].value == globals.id.wall || grid[x][y].isEvaluated || this.cantAccess(x, y, cell.pos[0], cell.pos[1])) {
                     continue;
                 }
-                let fVal, gVal, hVal;
-                // gVal = 
+                let cost, gVal, hVal;
 
                 hVal = this.calcDist(x, y, this.endingPoint.pos[0], this.endingPoint.pos[1]);
-                gVal = this.calcDist(x, y, cell.pos[0], cell.pos[1])
-                fVal = gVal + hVal;
-                if (!grid[x][y].isVisited || grid[x][y].fVal && grid[x][y].fVal > fVal) {
+                gVal = prioritizeOpenDistance * cell.gVal + ((x != cell.pos[0] && y != cell.pos[1]) ? this.distDiag : this.distCells);//this.calcDist(x, y, cell.pos[0], cell.pos[1]);
+                cost = gVal + hVal;
+                if (!grid[x][y].isVisited || grid[x][y].cost && grid[x][y].cost > cost) {
                     grid[x][y].parent = cell;
                     grid[x][y].hVal = hVal;
                     grid[x][y].gVal = gVal;
-                    grid[x][y].fVal = fVal;
+                    grid[x][y].cost = cost;
                     if (!grid[x][y].isVisited) {
                         this.open.push(grid[x][y]);
                         grid[x][y].isVisited = true;
@@ -127,7 +134,7 @@ class Alg {
         for (let x = 0; x < gridSize; ++x) {
             for (let y = 0; y < gridSize; ++y) {
                 grid[x][y].isVisited = false;
-                grid[x][y].isClosed = false;
+                grid[x][y].isEvaluated = false;
                 grid[x][y].parent = null;
             }
         }
@@ -145,7 +152,10 @@ class Alg {
             this.begin();
             this.stepCount++;
             return;
-        } else if (this.isFinished && this.startingPoint.value != globals.id.start) {
+        } else if (this.isFinished) {
+            if (this.startingPoint.value == globals.id.start) {
+                return;
+            }
             if (!this.currentBackTrack) {
                 this.currentBackTrack = this.endingPoint.parent;
                 this.endingPoint.value = globals.id.start;
@@ -159,6 +169,9 @@ class Alg {
             }
             return;
         }
+        if (dynamicSteps && this.open.length) {
+            algSteps = this.open.length - 1;
+        }
         do {
             if (this.open.length <= 0) {
                 alert("Couldn't find path");
@@ -170,13 +183,13 @@ class Alg {
             }
             let foundIndex = 0;
             for (let index = 1; index < this.open.length; ++index) {
-                if (this.open[index].fVal < this.open[foundIndex].fVal) {
+                if (this.open[index].cost < this.open[foundIndex].cost) {
                     foundIndex = index;
                 }
             }
             let current = this.open[foundIndex];
             this.open.swapDelete(foundIndex);
-            current.isClosed = true;
+            current.isEvaluated = true;
 
             if (current.pos == this.endingPoint.pos) {
                 this.isFinished = true;
@@ -184,8 +197,8 @@ class Alg {
             }
             this.iterateNeighbors(current);
             current.value = globals.id.visited;
-            // this.open.sort((a, b) => a.fVal - b.fVal);
-        } while (this.stepCount++ % algSteps);
+            // this.open.sort((a, b) => a.cost - b.cost);
+        } while (this.stepCount++ % algSteps || this.isFinished);
     }
 
 }
@@ -494,6 +507,7 @@ function initializeParams() {
     addParameter("Grid Size", gridSizeS);
     addParameter(null, createCustomCheckbox('bloomCb', false, "Bloom", function () { this.checkbox.checked ? context.disableBloom() : context.enableBloom(); }));
     addParameter(null, createCustomCheckbox('generate', false, "Generate Maze", function () { this.checkbox.checked = true; alg.reset(); grid.clearGrid(); grid.genMaze(); }));
+    addParameter(null, createCustomCheckbox('openDist', false, "Faster", function () { prioritizeOpenDistance = this.checkbox.checked; }));
     addParameter(null, createCustomCheckbox('begin', false, "Begin Pathfinding", onStartButton));
 
     document.getElementById('content').appendChild(parameterDiv);
@@ -627,7 +641,7 @@ grid.clearGrid = function () {
                 grid[x][y].value = globals.id.empty;
             }
             grid[x][y].isVisited = false;
-            grid[x][y].isClosed = false;
+            grid[x][y].isEvaluated = false;
         }
     }
 }
@@ -883,10 +897,10 @@ function plotLineHigh(x0, y0, x1, y1) {
 
 function onKeyDown(event) {
     globals.shiftKeyDown = (/Shift/.test(event.code));
-    if (/Digit[1234]/.test(event.code)) {
-        selectTool(Number(String(event.code)[5]) - 1);
+    if (/Digit[1234]/.test(event.code) || 48 < event.which && event.which < 53) {
+        selectTool(Number(event.which - 49));
     }
-    else if (/Space/.test(event.code)) {
+    else if (/Space/.test(event.code) || event.which == 32) {
         // onPauseButtonClick();
         if (alg.isFinished) {
             event.preventDefault();
@@ -898,7 +912,7 @@ function onKeyDown(event) {
             pause();
         }
         event.preventDefault();
-    } else if (/Tab/.test(event.code)) {
+    } else if (/Tab/.test(event.code) || event.which == 9) {
         event.preventDefault();
         let params = document.getElementById("parameters");
         if (params.updateIntervalId != null) {
