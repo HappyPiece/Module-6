@@ -1,7 +1,7 @@
 var srcPath = "./resources/ants/";
-var canvasWidth = 600;
+var canvasWidth = 900;
 var canvasHeight = 600;
-var fitScoreBase;
+var fitScoreBase = 1;
 
 var updateInterval = 125;
 var updateFunctionIntervalId;
@@ -11,8 +11,6 @@ var sliderBackgroundColor = "#242424";
 var sliderThumbColor = "#04AA6D";
 var sliderThumbSize = 25;
 var globals;
-var pointBuffer;
-var drawBuffer;
 
 class Globals {
     constructor() {
@@ -23,18 +21,19 @@ class Globals {
         this.toolButtonDown = false;
         this.bloom = false;
         this.showAllTimeBest = true;
+        this.algStepInterval = 10;
         this.mousepos = [];
     }
 }
-
+globals = new Globals();
 
 class Alg {
     constructor() {
         this.stepCount = 0;
         this.isRunning = false;
         this.isFinished = false;
-        this.populationSampleSize = 10;
-        this.randomMutationChance = 0.05;
+        this.populationSampleSize = 50;
+        this.randomMutationChance = 0.005;
         this.points = [];
         this.population = [];
         this.best = [];
@@ -56,14 +55,17 @@ class Alg {
     }
 
     step() {
+        do {
+            this.generateNextPopulation();
+            this.stepCount++;
+        } while (this.stepCount % globals.algStepInterval);
+        this.stepCount = 0;
 
-        this.generateNextPopulation();
-        this.stepCount++;
     }
 
     start() {
         if (this.isRunning || this.points.length <= 1 || this.isFinished) {
-            return;
+            return false;
         }
 
         let fs, fsTotal = 0;
@@ -80,26 +82,65 @@ class Alg {
             fsTotal += fs;
         }
         this.normalizePopulationFitnessScores(fsTotal);
-        this.isRunning = true;
+        return this.isRunning = true;
     }
 
+
     generateNextPopulation() {
-        let population = [], fs, fsTotal;
+        let population = [], fs1, fs2, fsTotal;
         this.generationBest.fitScore = -1;
-        for (let index = 0; index < this.populationSampleSize; ++index) {
+        let index = 0, half = Math.floor(this.populationSampleSize / 2);
+        for (; index <= half; ++index) {
             population[index] = this.pickPathByFitness();
+        }
+        for (; index < this.populationSampleSize - 1; ++index) {
+            if (((index - half) % 2)) {
+                [population[index], population[index + 1]] = this.crossover(population[Math.floor(Math.random() * 3 * half) % half], population[Math.floor(Math.random() * 3 * half) % half]);
+            }
             this.mutate(population[index]);
-            fs = this.getFitnessScore(population[index]);
-            if (fs > this.best.fitScore) {
+            this.mutate(population[index - half]);
+            fs1 = this.getFitnessScore(population[index]);
+            if (fs1 > this.best.fitScore) {//Отдельные функции не выделялись, потому что дорогие вычисления fitness score, копипаста по той же причине
                 this.best.clone(population[index]);
-                this.best.fitScore = fs;
-            }
-            if (fs > this.generationBest.fitScore) {
+                this.best.fitScore = fs1;
                 this.generationBest.clone(population[index]);
-                this.generationBest.fitScore = fs;
+                this.generationBest.fitScore = fs1;
             }
-            population[index].fitScore = fs;
-            fsTotal += fs;
+            else if (fs1 > this.generationBest.fitScore) {
+                this.generationBest.clone(population[index]);
+                this.generationBest.fitScore = fs1;
+            }
+            if (fs2 > this.best.fitScore) {
+                this.best.clone(population[index - half]);
+                this.best.fitScore = fs2;
+                this.generationBest.clone(population[index - half]);
+                this.generationBest.fitScore = fs2;
+            }
+            else if (fs2 > this.generationBest.fitScore) {
+                this.generationBest.clone(population[index - half]);
+                this.generationBest.fitScore = fs2;
+            }
+            population[index].fitScore = fs1;
+            population[index - half].fitScore = fs2;
+            if (isNaN(population[index].fitScore)) {
+                this.isRunning = false;
+            }
+            fsTotal += fs1 + fs2;
+        }
+        if (this.populationSampleSize % 2) {
+            fs1 = this.getFitnessScore(population[half - 1]);
+            if (fs1 > this.best.fitScore) {
+                this.best.clone(population[index]);
+                this.best.fitScore = fs1;
+                this.generationBest.clone(population[index]);
+                this.generationBest.fitScore = fs1;
+            }
+            else if (fs1 > this.generationBest.fitScore) {
+                this.generationBest.clone(population[index]);
+                this.generationBest.fitScore = fs1;
+            }
+            population[half - 1].fitScore = fs1;
+            fsTotal += fs1;
         }
         this.population = population;
         this.normalizePopulationFitnessScores(fsTotal);
@@ -129,14 +170,65 @@ class Alg {
     }
 
     mutate(path) {
-
         if (Math.random() < this.randomMutationChance) {
             path.swap(Math.floor(Math.random() * 3 * path.length) % path.length, Math.floor(Math.random() * 3 * path.length) % path.length);
         }
     }
 
-}
+    crossover(parent1, parent2, left, right) {
+        //partially mapped crossover:
+        // let left, right;
+        // left = Math.floor(Math.random() * this.parent1.length * 3) % this.parent1.length;
+        // right = Math.floor(Math.random() * this.parent1.length * 3) % this.parent1.length;
+        if (right < left) {
+            left += right;
+            right = left - right;
+            left -= right;
+        }
+        let offspring = [[], []];
+        let section = [new Map(), new Map()];
+        offspring[0].clone(parent1);
+        offspring[1].clone(parent2);
 
+        for (let index = left; index < right + 1; ++index) {
+            section[0].set(parent1[index], parent2[index]);
+            section[1].set(parent2[index], parent1[index]);
+            offspring[0][index] = parent2[index];
+            offspring[1][index] = parent1[index];
+        }
+
+        for (let index = 0, element; index < parent1.length; ++index) {
+            if (index == left) {
+                index = right;
+                continue;
+            }
+            if (!section[1].has(parent1[index])) {
+                offspring[0][index] = parent1[index];
+            } else {
+                element = section[1].get(parent1[index]);
+                while (section[1].has(element)) {
+                    element = section[1].get(element);
+                }
+                offspring[0][index] = element;
+            }
+            if (!section[0].has(parent2[index])) {
+                offspring[1][index] = parent2[index];
+            } else {
+                element = section[0].get(parent2[index]);
+                while (section[0].has(element)) {
+                    element = section[0].get(element);
+                }
+                offspring[1][index] = element;
+            }
+
+        }
+        return offspring;
+        //order crossover
+        //cycle crossover
+    }
+
+}
+alg = new Alg();
 
 
 Math.dist = function (x, y, x1, y1) {
@@ -455,11 +547,13 @@ function initializeParams() {
         parameterDiv.appendChild(par);
     }
     let updateIntervalS = createCustomSlider(1, 200, 'fpsSlider', "100%", Math.round(1000 / updateInterval), function () { changeUpdateInterval(Math.round(1000 / updateIntervalS.value)); }, (x) => Math.round(1000 / updateInterval));
+    let algStepS = createCustomSlider(1, 6, 'algsteps', "100%", Math.round(Math.log10(globals.algStepInterval)), function () { globals.algStepInterval = Math.pow(10, algStepS.value - 1); }, (x) => Math.pow(10, algStepS.value - 1));
     // updateIntervalS.style.minWidth = "175px";
     addParameter("Desired TPS", updateIntervalS);
     addParameter(null, createCustomCheckbox('bloomCb', false, "Bloom", function () { this.checkbox.checked ? context.disableBloom() : context.enableBloom(); }));
     addParameter(null, createCustomCheckbox('atb', globals.showAllTimeBest, "Show All Time Best", function () { globals.showAllTimeBest = !this.checkbox.checked; }));
     addParameter(null, createCustomCheckbox('start', false, "Start", onStartButton));
+    addParameter("Alg Steps Per Tick", algStepS);
 
     document.getElementById('content').appendChild(parameterDiv);
 }
@@ -502,7 +596,7 @@ function initialize() {
 function draw() {
     context.fillStyle = globals.colorsExperimental[0];
     context.fillRect(0, 0, canvasWidth, canvasHeight);
-    if (alg.isRunning) {
+    if (alg.isRunning || alg.isFinished) {
         requestAnimationFrame(drawLines);
     }
     requestAnimationFrame(drawPoints);
@@ -542,7 +636,6 @@ function update() {
         alg.step();
     } else if (alg.isFinished) {
         document.getElementById("start").changeText("Reset");
-        document.getElementById("start").style.display = "block";
         pause();
     }
     draw();
@@ -574,7 +667,7 @@ function onCanvasMouseDown(event) {
     let rect = event.target.getBoundingClientRect();
     let x = Math.floor(event.clientX - rect.left), y = Math.floor(event.clientY - rect.top);
     placePoint(x, y);
-    fitScoreBase = Math.floor(canvasWidth / 2 * alg.points.length);
+    // fitScoreBase = Math.floor(canvasWidth / 2 * alg.points.length);
     // requestAnimationFrame(drawPoints);
 }
 
@@ -582,13 +675,17 @@ function onStartButton() {
     this.checkbox.checked = true;
 
     if (!alg.isRunning && !alg.isFinished) {
-        this.style.display = "none";
+        if (!alg.start()) {
+            return;
+        }
         resume();
+        this.changeText("Stop");
     }
-    alg.start();
-    if (alg.isFinished) {
+    else if (alg.isFinished) {
         alg.reset();
         this.changeText("Start");
+    } else if (alg.isRunning) {
+        alg.isFinished = !(alg.isRunning = false);
     }
 
 }
