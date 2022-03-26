@@ -1,5 +1,5 @@
 window.data = {
-    algorithms: ["A*", "Clusterization algorithm", "Genetical algorithm", "Ant algorithm", "Decision tree", "Neural network"]
+    algorithms: ["A*", "Clusterization algorithm", "Genetic algorithm", "Ant algorithm", "Decision tree", "Neural network"]
 }
 
 function getIdFromURL() {
@@ -76,8 +76,9 @@ function getImage() {
                 document.write("<script src='./clustering.js'></script>");
                 break;
             case 2:
-                image.src = "./resources/gachimuchi/hacker.gif";
-                document.getElementById("content").append(image);
+                // image.src = "./resources/gachimuchi/hacker.gif";
+                // document.getElementById("content").append(image);
+                document.write("<script src='./scripts/genetic.js'></script>");
                 break;
             case 3:
                 document.write("<script src='ants.js'></script>");

@@ -17,11 +17,12 @@ var drawBuffer;
 class Globals {
     constructor() {
         this.paused = true;
-        this.colors = ["--onBackground", "#3fFF20", "--pheromones"];
+        this.colors = ["--onBackground", "#3fFF20", "--pheromones", "#FFFFFF"];
         this.colorsExperimental = [];
         this.htmlIDs = [];
         this.toolButtonDown = false;
         this.bloom = false;
+        this.showAllTimeBest = true;
         this.mousepos = [];
     }
 }
@@ -38,6 +39,8 @@ class Alg {
         this.population = [];
         this.best = [];
         this.best.fitScore = -1;
+        this.generationBest = [];
+        this.generationBest.fitScore = -1;
 
         this.dist = function (point1, point2) { return (point1[0] - point2[0]) * (point1[0] - point2[0]) + (point1[1] - point2[1]) * (point1[1] - point2[1]); }
     }
@@ -47,6 +50,7 @@ class Alg {
         this.isRunning = false;
         this.isFinished = false;
         this.population = [];
+        this.points = [];
         this.best = [];
         this.best.fitScore = -1;
     }
@@ -58,7 +62,7 @@ class Alg {
     }
 
     start() {
-        if (this.isRunning || this.points.length <= 1) {
+        if (this.isRunning || this.points.length <= 1 || this.isFinished) {
             return;
         }
 
@@ -81,6 +85,7 @@ class Alg {
 
     generateNextPopulation() {
         let population = [], fs, fsTotal;
+        this.generationBest.fitScore = -1;
         for (let index = 0; index < this.populationSampleSize; ++index) {
             population[index] = this.pickPathByFitness();
             this.mutate(population[index]);
@@ -88,6 +93,10 @@ class Alg {
             if (fs > this.best.fitScore) {
                 this.best.clone(population[index]);
                 this.best.fitScore = fs;
+            }
+            if (fs > this.generationBest.fitScore) {
+                this.generationBest.clone(population[index]);
+                this.generationBest.fitScore = fs;
             }
             population[index].fitScore = fs;
             fsTotal += fs;
@@ -356,7 +365,8 @@ function createCustomCheckbox(id, checked = false, text = "", onChange = functio
     let cbContainer = document.createElement("label");
     let checkbox = document.createElement("input");
     let checkMark = document.createElement("span");
-    let innerText = document.createElement("span");
+    let innerText = document.createElement("div");
+    let textContainer = document.createElement("div");
 
     cbContainer.className = "checkboxContainer";
     checkMark.className = "checkmark";
@@ -371,9 +381,13 @@ function createCustomCheckbox(id, checked = false, text = "", onChange = functio
     cbContainer.id = String(id);
     innerText.textContent = String(text);
 
+    textContainer.style.paddingLeft = "25px";
+    textContainer.style.whiteSpace = "nowrap";
+    textContainer.appendChild(innerText);
+
     cbContainer.appendChild(checkbox);
     cbContainer.appendChild(checkMark);
-    cbContainer.append(innerText);
+    cbContainer.appendChild(textContainer);
     cbContainer.changeText = function (newText) { innerText.textContent = newText; };
     // cbContainer.addEventListener("mousedown", function () { console.log(this.checkbox.checked, this.checked) });
     cbContainer.addEventListener("mousedown", onChange);
@@ -416,7 +430,6 @@ function initializeCanvas() {
             }
         }
     }
-    context.strokeStyle = globals.colorsExperimental[2];
     initializeParams();
 }
 
@@ -442,10 +455,11 @@ function initializeParams() {
         parameterDiv.appendChild(par);
     }
     let updateIntervalS = createCustomSlider(1, 200, 'fpsSlider', "100%", Math.round(1000 / updateInterval), function () { changeUpdateInterval(Math.round(1000 / updateIntervalS.value)); }, (x) => Math.round(1000 / updateInterval));
-    updateIntervalS.style.minWidth = "175px";
+    // updateIntervalS.style.minWidth = "175px";
     addParameter("Desired TPS", updateIntervalS);
     addParameter(null, createCustomCheckbox('bloomCb', false, "Bloom", function () { this.checkbox.checked ? context.disableBloom() : context.enableBloom(); }));
-    addParameter(null, createCustomCheckbox('start', false, "start", function () { this.checkbox.checked = false; this.changeText("lol"); alg.start(); resume(); }));
+    addParameter(null, createCustomCheckbox('atb', globals.showAllTimeBest, "Show All Time Best", function () { globals.showAllTimeBest = !this.checkbox.checked; }));
+    addParameter(null, createCustomCheckbox('start', false, "Start", onStartButton));
 
     document.getElementById('content').appendChild(parameterDiv);
 }
@@ -489,12 +503,7 @@ function draw() {
     context.fillStyle = globals.colorsExperimental[0];
     context.fillRect(0, 0, canvasWidth, canvasHeight);
     if (alg.isRunning) {
-        context.moveTo(alg.best[0][0][0], alg.best[0][0][1]);
-        context.beginPath();
-        for (let index = 0; index <= alg.best.length; ++index) {
-            context.lineTo(alg.best[(index + 1) % alg.best.length][0], alg.best[(index + 1) % alg.best.length][1])
-            context.stroke();
-        }
+        requestAnimationFrame(drawLines);
     }
     requestAnimationFrame(drawPoints);
 }
@@ -506,9 +515,35 @@ function drawPoints() {
     }
 }
 
+function drawLines() {
+    if (globals.showAllTimeBest) {
+        context.strokeStyle = globals.colorsExperimental[2];
+        context.lineWidth = 2;
+        context.moveTo(alg.best[0][0][0], alg.best[0][0][1]);
+        context.beginPath();
+        for (let index = 0; index <= alg.best.length; ++index) {
+            context.lineTo(alg.best[(index + 1) % alg.best.length][0], alg.best[(index + 1) % alg.best.length][1])
+            context.stroke();
+        }
+    }
+
+    context.strokeStyle = globals.colorsExperimental[3];
+    context.lineWidth = 0.2;
+    context.moveTo(alg.generationBest[0][0][0], alg.generationBest[0][0][1]);
+    context.beginPath();
+    for (let index = 0; index <= alg.best.length; ++index) {
+        context.lineTo(alg.generationBest[(index + 1) % alg.generationBest.length][0], alg.generationBest[(index + 1) % alg.generationBest.length][1])
+        context.stroke();
+    }
+}
+
 function update() {
     if (alg.isRunning) {
         alg.step();
+    } else if (alg.isFinished) {
+        document.getElementById("start").changeText("Reset");
+        document.getElementById("start").style.display = "block";
+        pause();
     }
     draw();
 }
@@ -545,15 +580,15 @@ function onCanvasMouseDown(event) {
 
 function onStartButton() {
     this.checkbox.checked = true;
+
+    if (!alg.isRunning && !alg.isFinished) {
+        this.style.display = "none";
+        resume();
+    }
+    alg.start();
     if (alg.isFinished) {
         alg.reset();
-        pause();
-        return;
-    }
-    if (globals.paused) {
-        resume();
-    } else {
-        pause();
+        this.changeText("Start");
     }
 
 }
