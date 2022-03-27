@@ -3,7 +3,7 @@ var canvasWidth = 900;
 var canvasHeight = 600;
 var fitScoreBase = 1;
 
-var updateInterval = 125;
+var updateInterval = 100;
 var updateFunctionIntervalId;
 var computedStyle;
 var context;
@@ -21,7 +21,8 @@ class Globals {
         this.toolButtonDown = false;
         this.bloom = false;
         this.showAllTimeBest = true;
-        this.algStepInterval = 10;
+        this.algStepInterval = 1;
+        this.generations = 100;
         this.mousepos = [];
     }
 }
@@ -32,8 +33,9 @@ class Alg {
         this.stepCount = 0;
         this.isRunning = false;
         this.isFinished = false;
-        this.populationSampleSize = 50;
-        this.randomMutationChance = 0.005;
+        this.populationSampleSize = 20;
+        this.randomMutationChance = 0.03;
+        this.mutationStabilizationFactor = 0.8;
         this.points = [];
         this.population = [];
         this.best = [];
@@ -45,22 +47,24 @@ class Alg {
     }
 
     reset() {
-        this.stepCount = 0;
         this.isRunning = false;
         this.isFinished = false;
+        this.stepCount = 0;
         this.population = [];
         this.points = [];
         this.best = [];
         this.best.fitScore = -1;
+        this.generationBest = [];
+        this.generationBest.fitScore = -1;
+        this.randomMutationChance = 0.03
     }
 
     step() {
-        do {
-            this.generateNextPopulation();
-            this.stepCount++;
-        } while (this.stepCount % globals.algStepInterval);
-        this.stepCount = 0;
-
+        this.generateNextPopulation2();
+        this.stepCount++;
+        this.randomMutationChance = this.randomMutationChance * this.mutationStabilizationFactor;
+        // this.stepCount = 0;
+        // this.isFinished = !(this.isRunning = false);
     }
 
     start() {
@@ -82,9 +86,13 @@ class Alg {
             fsTotal += fs;
         }
         this.normalizePopulationFitnessScores(fsTotal);
+        // this.randomMutationChance = 0.05 / this.populationSampleSize;
         return this.isRunning = true;
     }
 
+    stop() {
+        this.isRunning = !(this.isFinished = true);
+    }
 
     generateNextPopulation() {
         let population = [], fs1, fs2, fsTotal;
@@ -122,9 +130,6 @@ class Alg {
             }
             population[index].fitScore = fs1;
             population[index - half].fitScore = fs2;
-            if (isNaN(population[index].fitScore)) {
-                this.isRunning = false;
-            }
             fsTotal += fs1 + fs2;
         }
         if (this.populationSampleSize % 2) {
@@ -146,6 +151,42 @@ class Alg {
         this.normalizePopulationFitnessScores(fsTotal);
     }
 
+    generateNextPopulation2() {
+        let population = [];
+        let index = 0, half = Math.ceil(this.populationSampleSize / 2);
+        this.population.sort((a, b) => b.fitScore - a.fitScore);
+        this.generationBest.fitScore = -1;
+        for (; index < half; ++index) {
+            population[index] = this.pickGenomeByFitness();
+        }
+        let offspring = [];
+        for (index = half; index < this.populationSampleSize; index += 2) {
+            offspring = this.crossover(population[Math.floor(Math.random() * half)], population[Math.floor(Math.random() * half)]);
+            population[index] = offspring[0];
+            population[index + 1] = offspring[1];
+        }
+
+        let fs, fsTotal = 0;
+        for (index = 0; index < this.populationSampleSize; ++index) {
+            this.mutate(population[index]);
+            fs = this.getFitnessScore(population[index]);
+            if (fs >= this.generationBest.fitScore) {
+                this.generationBest.clone(population[index]);
+                this.generationBest.fitScore = fs;
+            }
+            population[index].fitScore = fs;
+            fsTotal += fs;
+        }
+
+        if (this.generationBest.fitScore > this.best.fitScore) {
+            this.best.clone(this.generationBest);
+            this.best.fitScore = this.generationBest.fitScore;
+        }
+
+        this.population = population;
+        this.normalizePopulationFitnessScores(fsTotal);
+    }
+
     getFitnessScore(path) {
         let length = 0;
         for (let index = 0; index < path.length; ++index) {
@@ -160,7 +201,7 @@ class Alg {
         }
     }
 
-    pickPathByFitness() {
+    pickGenomeByFitness() {
         let rand = Math.random(), index = 0;
         while (index < this.population.length && rand > 0) {
             rand -= this.population[index++].fitScore;
@@ -170,16 +211,26 @@ class Alg {
     }
 
     mutate(path) {
-        if (Math.random() < this.randomMutationChance) {
-            path.swap(Math.floor(Math.random() * 3 * path.length) % path.length, Math.floor(Math.random() * 3 * path.length) % path.length);
+        let rand = Math.random();
+        if (rand < this.randomMutationChance * 0.5) {//Случайный обмен узлов
+            path.swap(Math.floor(Math.random() * path.length), Math.floor(Math.random() * path.length));
+        }
+        else if (rand < this.randomMutationChance * 1.66) {//Реверс части генома круто помогает в редких случаях
+            let left = Math.floor(Math.random() * path.length), right = Math.floor(Math.random() * path.length);
+            if (right > left) {
+                let t = left;
+                left = right;
+                right = t;
+            }
+            path.reverse(left, right);
         }
     }
 
-    crossover(parent1, parent2, left, right) {
+    crossover(parent1, parent2) {//Писал-дебажил, а  алгоритм никчемный оказался. По факту просто случайно как-то все перебирает, даже после миллиона поколений пальцем в небо тыкает
         //partially mapped crossover:
-        // let left, right;
-        // left = Math.floor(Math.random() * this.parent1.length * 3) % this.parent1.length;
-        // right = Math.floor(Math.random() * this.parent1.length * 3) % this.parent1.length;
+        let left, right;
+        left = Math.floor(Math.random() * parent1.length * 3) % parent1.length;
+        right = Math.floor(Math.random() * parent1.length * 3) % parent1.length;
         if (right < left) {
             left += right;
             right = left - right;
@@ -264,6 +315,12 @@ Array.prototype.swap = function (index1, index2) {
     let t = this[index1];
     this[index1] = this[index2];
     this[index2] = t;
+}
+
+Array.prototype.reverse = function (from, to) {
+    while (from < to) {
+        this.swap(from++, to--);
+    }
 }
 
 function hexToRgb(hex) {
@@ -546,14 +603,14 @@ function initializeParams() {
         par.appendChild(inputContainer);
         parameterDiv.appendChild(par);
     }
-    let updateIntervalS = createCustomSlider(1, 200, 'fpsSlider', "100%", Math.round(1000 / updateInterval), function () { changeUpdateInterval(Math.round(1000 / updateIntervalS.value)); }, (x) => Math.round(1000 / updateInterval));
+    let updateIntervalS = createCustomSlider(1, 100, 'fpsSlider', "100%", Math.round(1000 / updateInterval), function () { changeUpdateInterval(Math.round(1000 / updateIntervalS.value)); }, (x) => Math.round(1000 / updateInterval));
     let algStepS = createCustomSlider(1, 6, 'algsteps', "100%", Math.round(Math.log10(globals.algStepInterval)), function () { globals.algStepInterval = Math.pow(10, algStepS.value - 1); }, (x) => Math.pow(10, algStepS.value - 1));
     // updateIntervalS.style.minWidth = "175px";
     addParameter("Desired TPS", updateIntervalS);
+    addParameter("Alg Steps Per Tick", algStepS);
     addParameter(null, createCustomCheckbox('bloomCb', false, "Bloom", function () { this.checkbox.checked ? context.disableBloom() : context.enableBloom(); }));
     addParameter(null, createCustomCheckbox('atb', globals.showAllTimeBest, "Show All Time Best", function () { globals.showAllTimeBest = !this.checkbox.checked; }));
     addParameter(null, createCustomCheckbox('start', false, "Start", onStartButton));
-    addParameter("Alg Steps Per Tick", algStepS);
 
     document.getElementById('content').appendChild(parameterDiv);
 }
@@ -633,8 +690,12 @@ function drawLines() {
 
 function update() {
     if (alg.isRunning) {
-        alg.step();
-    } else if (alg.isFinished) {
+        for (let count = 0; count < globals.algStepInterval; ++count) {
+            alg.step();
+        }
+    }
+    if (alg.stepCount >= globals.generations) {
+        alg.stop();
         document.getElementById("start").changeText("Reset");
         pause();
     }
