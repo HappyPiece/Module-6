@@ -1063,6 +1063,8 @@ function start() {
     initialize();
     alg = new Alg();
     updateFunctionIntervalId = setInterval(draw, updateInterval);
+    let search = new Audio(srcPath + 'search.wav');
+    search.play();
 }
 
 function exit() {
