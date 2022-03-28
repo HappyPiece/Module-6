@@ -12,7 +12,7 @@ class Globals {
         this.htmlIDs = [];
         this.points = [];
         this.colorsUsedCounter = 0;
-        this.depth = 3;
+        this.depth = 1;
     }
 }
 
@@ -106,7 +106,7 @@ function distanceBetweenClosestPoints(elem1, elem2)
             if (element1 != element2)
             {
                 let distance = Math.sqrt((element1.pos.x-element2.pos.x)*(element1.pos.x-element2.pos.x)+(element1.pos.y-element2.pos.y)*(element1.pos.y-element2.pos.y));
-                if (minDistance < 0 || minDistance > distance)
+                if ((minDistance < 0) || (minDistance > distance))
                 {
                     minDistance = distance;
                 }
@@ -126,19 +126,43 @@ function colorManager()
     return "#"+randColor;
 }
 
+function treeDepth(tree)
+{
+    if (tree.type == "Point")
+    {
+        return 0;
+    }
+    else
+    {
+        return 1 + Math.max(treeDepth(tree.left), treeDepth(tree.left));
+    }
+}
+
 function drawTree(tree)
 {
-    let counter = 0, levelClusters = [tree], sublevelClusters;
+    let counter = 0, levelClusters = [tree], sublevelClusters, maxDepth, chosenCluster;
     while (counter < globals.depth)
     {
+        maxDepth = -1;
         sublevelClusters = [];
         for (cluster of levelClusters)
         {
-            if (cluster.type == "Node")
+            if (maxDepth < treeDepth(cluster))
+            {
+                maxDepth = treeDepth(cluster);
+                chosenCluster = cluster;
+            }
+        }
+        for (cluster of levelClusters)
+        {
+            if (cluster == chosenCluster)
             {
                 sublevelClusters.push(cluster.left);
                 sublevelClusters.push(cluster.right);
-                break;
+            }
+            else
+            {
+                sublevelClusters.push(cluster);
             }
         }
         levelClusters = sublevelClusters;
@@ -238,6 +262,11 @@ function removeElements() {
 function initialize() {
     computedStyle = getComputedStyle(document.body);
     document.body.oncontextmenu = function() {return false};
+    registerCustomSlider();
+    registerCustomCheckbox();
+    registerCustomButton();
+    registerCustomselectionwheel();
+    //initializeControls();
     initializeCanvas();
 }
 
