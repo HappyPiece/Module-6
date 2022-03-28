@@ -3,7 +3,7 @@ var canvasWidth = 900;
 var canvasHeight = 600;
 var fitScoreBase = 1;
 
-var updateInterval = 100;
+var updateInterval = 25;
 var updateFunctionIntervalId;
 var computedStyle;
 var context;
@@ -15,13 +15,13 @@ var globals;
 class Globals {
     constructor() {
         this.paused = true;
-        this.colors = ["--onBackground", "#3fFF20", "--pheromones", "#FFFFFF"];
+        this.colors = ["--onBackground", "#3fFF20", "--pheromones", "#FFFFFF", "--primary"];
         this.colorsExperimental = [];
         this.htmlIDs = [];
         this.toolButtonDown = false;
         this.bloom = false;
         this.showAllTimeBest = true;
-        this.algStepInterval = 1;
+        this.algStepInterval = 10;
         this.mousepos = [];
     }
 }
@@ -516,6 +516,7 @@ function initializeCanvas() {
     context = canvas.getContext("2d");
     context.enableBloom = function () { context.canvas.style.filter = "url(" + srcPath + "bloom.svg" + "#bloom)" };
     context.disableBloom = function () { context.canvas.style.filter = "url()"; };
+    context.font = "2vmin Nunito";
 
     drawImage = context.createImageData(canvasWidth, canvasHeight);
     drawBuffer = drawImage.data;
@@ -524,9 +525,9 @@ function initializeCanvas() {
             globals.colorsExperimental.push(col);
         } else {
             globals.colorsExperimental.push(computedStyle.getPropertyValue(col).replace(/\s/g, ''));
-            if (globals.colorsExperimental[globals.colorsExperimental.length - 1] == null) {
-                console.error("UNABLE TO PARSE COLOR \"", col, "\" RENDERER ERRORS WILL APPEAR");
-            }
+        }
+        if (globals.colorsExperimental[globals.colorsExperimental.length - 1] == null) {
+            console.error("UNABLE TO PARSE COLOR \"", col, "\" RENDERER ERRORS WILL APPEAR");
         }
     }
     initializeParams();
@@ -608,8 +609,11 @@ function draw() {
     context.fillRect(0, 0, canvasWidth, canvasHeight);
     if (alg.isRunning || alg.isFinished) {
         requestAnimationFrame(drawLines);
+        context.fillStyle = globals.colorsExperimental[4];
+        context.fillText(String(alg.genCount) + " gen", 4, 15);
     }
     requestAnimationFrame(drawPoints);
+
 }
 
 function drawPoints() {
