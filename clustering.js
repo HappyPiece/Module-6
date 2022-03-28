@@ -3,8 +3,12 @@ var canvasWidth = 600;
 var canvasHeight = 600;
 var radius = 10;
 
+
 var computedStyle;
 var context;
+var sliderBackgroundColor = "#242424";
+var sliderThumbColor = "#04AA6D";
+var sliderThumbSize = 25;
 
 class Globals {
     constructor() {
@@ -266,8 +270,9 @@ function initialize() {
     registerCustomCheckbox();
     registerCustomButton();
     registerCustomselectionwheel();
-    //initializeControls();
+    window.document.addEventListener("keydown", onKeyDown);
     initializeCanvas();
+    initializeParams();
 }
 
 function clusteringStart() {
@@ -280,3 +285,462 @@ function clusteringExit() {
 }
 
 clusteringStart();
+
+function onKeyDown(event) {
+    if (/Tab/.test(event.code) || event.which == 9) {
+        event.preventDefault();
+        let params = document.getElementById("parameters");
+        if (params.updateIntervalId != null) {
+            return true;
+        }
+        params.fadeStep = params.style.display == "none" ? 0.1 : -0.1;
+        params.updateIntervalId = setInterval(paramsFade, 40, params);
+    }
+}
+
+function initializeParams() {
+    let parameterDiv = document.createElement('div');
+    parameterDiv.id = "parameters";
+    parameterDiv.style.display = "none";
+    parameterDiv.style.minWidth = "200px";
+    parameterDiv.style.marginLeft = "3%";
+    parameterDiv.style.position = "fixed";
+    parameterDiv.style.opacity = "0";
+    globals.htmlIDs.unshift("parameters");
+    function addParameter(name, inputContainer) {
+        let par = document.createElement("div");
+        // par.style.display = "block";
+        if (name) {
+            let text = document.createElement('p');
+            text.innerText = name + " ";
+            text.style.display = "flex";
+            text.style.flexDirection = "column";
+            par.appendChild(text);
+        }
+        par.appendChild(inputContainer);
+        parameterDiv.appendChild(par);
+    }
+    let test = createCustomSelectionWheel("seltest", "100%", ["1", "2", "penis"], function() {return false});
+    addParameter(null, createCustomCheckbox('bloomCb', false, "Bloom", function () { this.checkbox.checked ? context.disableBloom() : context.enableBloom(); }));
+    addParameter(null, test);
+    addParameter("ASDFG:", createCustomNumberSelection("testns", "100%", 1, 0, 10, function() {return false}));
+
+    document.getElementById('content').appendChild(parameterDiv);
+}
+
+function paramsFade(params) {
+    let opacity = Number(params.style.opacity);
+    if (params.style.display == "none") {
+        params.style.display = "inline-block";
+    }
+    params.style.opacity = String(opacity += params.fadeStep);
+    if (opacity <= 0. || opacity >= 1.) {
+        params.style.opacity = opacity = Math.round(opacity);
+        params.style.display = opacity > 0 ? "inline-block" : "none";
+        clearInterval(params.updateIntervalId);
+        params.updateIntervalId = null;
+    }
+}
+
+function registerCustomSlider() {
+    let sliderStyle = `
+    .slider {
+            -webkit-appearance: none;
+            height: 20px;
+            background: ${sliderBackgroundColor};
+            outline: none;
+            opacity: 0.7;
+            -webkit-transition: .2s;
+            transition: opacity .2s;
+          }
+    
+          .slider:hover {
+            opacity: 1;
+          }
+    
+          .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: ${sliderThumbSize}px;
+            height: ${sliderThumbSize}px;
+            background: ${sliderThumbColor};
+            cursor: pointer;
+          }
+    
+          .slider::-moz-range-thumb {
+            width: 25px;
+            height: 20px;
+            background: ${sliderThumbColor};
+            cursor: pointer;
+          }
+` ;
+    var styleSheet = document.createElement('style');
+    styleSheet.innerText = sliderStyle.replace(/\n/g, " ").replace(/\s\s/g, "");
+    styleSheet.id = "slider-styles";
+    document.head.appendChild(styleSheet);
+    globals.htmlIDs.unshift("slider-styles");
+
+    let popup = document.createElement("div");
+    let popupText = document.createElement("span");
+    popup.id = "sliderPopUp";
+    popupText.id = "sliderPopUpText";
+
+    popup.appendChild(popupText);
+    popup.style.display = "none";
+    popup.style.position = "absolute";
+    popup.style.left = "100px";
+    popup.style.top = "50px";
+    // popup.style.width = "135px";
+    popup.style.border = "solid" + computedStyle.getPropertyValue("--primaryVariant") + " 1px";
+    popup.style.backgroundColor = computedStyle.getPropertyValue("--onBackground");
+    popup.style.textAlign = "justify";
+    popup.style.padding = "4px";
+    popup.style.fontSize = "1.5vmin";
+    document.body.appendChild(popup);
+    globals.htmlIDs.unshift("sliderPopUp");
+}
+
+function registerCustomCheckbox() {
+    let checkboxStyle = `
+    .checkboxContainer {
+        display: block;
+        position: relative;
+        margin: 2px;
+        margin-top: 5px;
+        cursor: pointer;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+      }
+      
+      /* Hide the browser's default checkbox */
+      .checkboxContainer input {
+        position: absolute;
+        opacity: 0;
+        cursor: pointer;
+        height: 0;
+        width: 0;
+      }
+      
+      /* Create a custom checkbox */
+      .checkmark {
+        position: absolute;
+        border: 0.2vmin solid ${computedStyle.getPropertyValue("--primary")};
+        top: 0;
+        left: 0;
+        height: 2.4vmin;
+        width: 2.4vmin;        
+        background-color: ${sliderBackgroundColor};
+      }
+      
+
+      /* When the checkbox is checked, add a blue background */
+      .checkboxContainer input:checked ~ .checkmark {
+        background-color: ${sliderThumbColor};
+      }
+      
+      /* Create the checkmark/indicator (hidden when not checked) */
+      .checkmark:after {
+        content: "";
+        position: absolute;
+        display: none;
+      }
+      
+      /* Show the checkmark when checked */
+      .checkboxContainer input:checked ~ .checkmark:after {
+        display: block;
+      }
+      
+      /* Style the checkmark/indicator */
+      .checkboxContainer .checkmark:after {
+        left: 9px;
+        top: 5px;
+        width: 5px;
+        height: 10px;
+        -webkit-transform: rotate(45deg);
+        -ms-transform: rotate(45deg);
+        transform: rotate(45deg);
+      }
+` ;
+    var styleSheet = document.createElement('style');
+    styleSheet.innerText = checkboxStyle.replace(/\n/g, " ").replace(/\s\s/g, "");
+    styleSheet.id = "checkbox-styles";
+    document.head.appendChild(styleSheet);
+    globals.htmlIDs.unshift("checkbox-styles");
+}
+
+function registerCustomButton() {
+    let style = `
+    .button{
+        display: inline-block;
+        border: solid ${computedStyle.getPropertyValue("--primary")} 1px;
+        background-color: ${computedStyle.getPropertyValue("--onBackground")};
+        text-align: center;
+        // padding: 4px;
+        height: 3vmin;
+        transition: background-color 100ms, color 100ms;
+        // border-radius: 0.4vmin;
+    }
+    .button:hover{
+        background-color: ${computedStyle.getPropertyValue("--primary")};
+        color: ${computedStyle.getPropertyValue("--onBackground")};
+    }
+`;
+    let styleSheet = document.createElement('style');
+    styleSheet.innerText = style.replace(/\n/g, " ").replace(/\s\s/g, "");
+    styleSheet.id = "button-styles";
+    document.head.appendChild(styleSheet);
+    globals.htmlIDs.unshift("button-styles");
+}
+
+function registerCustomselectionwheel() {
+    let style = `
+    .sel-wheel{
+        display: inline-block;
+        border: solid ${computedStyle.getPropertyValue("--primary")} 1px;
+        background-color: ${computedStyle.getPropertyValue("--onBackground")};
+        text-align: center;
+        margin-top: 4px;
+        margin-bottom: 4px;
+        height: 3vmin;
+        transition: background-color 100ms, color 100ms;
+    }
+    .sel-wheel-ArrowL{
+        left: 10%;
+        display: inline;
+        position: absolute;
+    }
+    .sel-wheel-ArrowR{
+        right: 10%;
+        display: inline;
+        position: absolute;
+    }
+    .sel-wheel:hover{
+        background-color: ${computedStyle.getPropertyValue("--primary")};
+        color: ${computedStyle.getPropertyValue("--onBackground")};
+    }
+`;
+    let styleSheet = document.createElement('style');
+    styleSheet.innerText = style.replace(/\n/g, " ").replace(/\s\s/g, "");
+    styleSheet.id = "selwheel-styles";
+    document.head.appendChild(styleSheet);
+    globals.htmlIDs.unshift("selwheel-styles");
+}
+
+function createCustomSlider(min, max, id, width = null, value = 0, onChange = function () { return true; }, popUpValue = null) {
+    let slider = document.createElement("input");
+    slider.className = "slider";
+    slider.type = "range";
+    slider.min = String(min);
+    slider.max = String(max);
+    slider.value = String(value);
+    slider.id = String(id);
+    // slider.style.appearance = "none";
+    if (width) {
+        slider.style.width = String(width);
+    }
+    slider.addEventListener("mouseenter", function () { slider.style.opacity = "1"; });
+    slider.addEventListener("mouseleave", function () { slider.style.opacity = "0.7"; });
+    slider.addEventListener("change", onChange);
+    if (popUpValue) {
+        let popup = document.getElementById("sliderPopUp");
+        slider.addEventListener("mouseover", onSliderMouseOver);
+        slider.addEventListener("mouseleave", function () { popup.style.display = "none"; });
+        slider.addEventListener("mousemove", onSliderMouseMove);
+        slider.addEventListener("mouseup", onSliderMouseMove);
+
+        function onSliderMouseOver(event) {
+            let x = event.clientX + window.scrollX - 2, y = event.clientY + window.scrollY + 13;
+
+            popup.style.display = "none";
+            popup.style.left = x + "px";
+            popup.style.top = y + "px";
+            popup.style.display = "block";
+
+            popup.innerHTML = String(popUpValue());
+        }
+        function onSliderMouseMove(event) {
+            let x = event.clientX, y = event.clientY;
+            let rect = event.target.getBoundingClientRect();
+            let thumbX = rect.left + Math.max((Number(slider.value) - 1) / (max - min) * (rect.right - rect.left - sliderThumbSize - 2), 0);
+            if (!(x >= thumbX && x < thumbX + sliderThumbSize)) {
+                popup.style.display = "none";
+                return true;
+            }
+            popup.style.left = String(x + window.scrollX - 2) + "px";
+            popup.style.top = String(y + window.scrollY + 13) + "px";
+            popup.innerHTML = String(popUpValue());
+            popup.style.display = "block";
+        }
+    }
+    return slider;
+}
+
+function createCustomCheckbox(id, checked = false, text = "", onChange = function () { return true; }) {
+    let cbContainer = document.createElement("label");
+    let checkbox = document.createElement("input");
+    let checkMark = document.createElement("span");
+    let innerText = document.createElement("span");
+
+    cbContainer.className = "checkboxContainer";
+    checkMark.className = "checkmark";
+    checkbox.className = "checkbox";
+
+    checkbox.type = "checkbox";
+    checkbox.checked = checked;
+
+    // cbContainer.innerText = String(text);
+    cbContainer.style.fontSize = "2vmin";
+    cbContainer.checkbox = checkbox;
+    cbContainer.id = String(id);
+    innerText.textContent = String(text);
+
+    cbContainer.appendChild(checkbox);
+    cbContainer.appendChild(checkMark);
+    cbContainer.append(innerText);
+    cbContainer.changeText = function (newText) { innerText.textContent = newText; };
+    // cbContainer.addEventListener("mousedown", function () { console.log(this.checkbox.checked, this.checked) });
+    cbContainer.addEventListener("mousedown", onChange);
+    globals.htmlIDs.unshift(String(id));
+    return cbContainer;
+}
+
+function createCustomButton(id, text, cssWidth = null, onClick = function () { return true; }) {
+    let button = document.createElement("div");
+    // let bText = document.createElement("span");
+    button.id = String(id);
+    button.className = "button";
+    button.innerText = String(text);
+    if (cssWidth) {
+        button.style.width = String(cssWidth);
+    }
+    // bText.innerText = String(text);
+    button.changeText = function (newText) {
+        this.innerText = String(newText);
+    }
+    button.addEventListener("mousedown", onClick);
+    // button.appendChild(bText);
+    return button;
+}
+
+function createCustomSelectionWheel(id, width, sOptionList = ["none"], optionChangeHandler = function () { return true; }) {
+    if (sOptionList.length < 1) {
+        return false;
+    }
+    let selwheel = document.createElement("div");
+    selwheel.id = String(id);
+    selwheel.className = 'sel-wheel';
+    selwheel.selectedOption = sOptionList[0];
+    selwheel.selectedOptionIndex = 0;
+    selwheel.optionList = sOptionList;
+    selwheel.addEventListener("mousedown", changeState);
+    selwheel.style.width = width ? String(width) : "100%";
+    let left = document.createElement("div"), right = document.createElement("div");
+    let ddText = document.createElement("span");
+    left.innerText = "<";
+    right.innerText = ">";
+    left.className = "sel-wheel-ArrowL";
+    right.className = "sel-wheel-ArrowR";
+    ddText.style.display = "inline-block";
+    ddText.innerText = selwheel.selectedOption;
+    selwheel.content = ddText;
+
+    selwheel.appendChild(left);
+    selwheel.appendChild(ddText)
+    selwheel.appendChild(right);
+
+    function changeState(event) {
+        let rect = this.getBoundingClientRect();
+        this.selectedOptionIndex = (this.selectedOptionIndex + Math.sign(event.clientX - rect.left - (rect.right - rect.left) / 2) + this.optionList.length) % this.optionList.length;
+        this.selectedOption = this.optionList[this.selectedOptionIndex];
+        this.content.innerText = this.selectedOption;
+        optionChangeHandler(event, this.selectedOption);
+    }
+
+    selwheel.appendOption = function (option) {
+        this.optionList.push(option);
+    }
+
+    globals.htmlIDs.unshift(String(id));
+    return selwheel;
+}
+
+function createCustomNumberSelection(id, width, init = 0, min = null, max = null, onChange = function () { return true; }) {
+    let selector = document.createElement("div");
+    selector.id = String(id);
+    selector.className = 'sel-wheel';
+    selector.selectedNumber = init;
+    selector.min = min;
+    selector.max = max;
+    selector.addEventListener("mousedown", changeState);
+    selector.style.width = width ? String(width) : "100%";
+    let left = document.createElement("div"), right = document.createElement("div");
+    let selValue = document.createElement("span");
+    let selInput = document.createElement("input");
+    selector.input = selInput;
+
+    left.innerText = "<";
+    right.innerText = ">";
+    left.className = "sel-wheel-ArrowL";
+    right.className = "sel-wheel-ArrowR";
+    selValue.style.display = "inline-block";
+    selValue.innerText = selector.selectedNumber;
+    selector.content = selValue;
+
+    selInput.type = "text";
+    selInput.style.position = "absolute";
+    selInput.style.width = "0";
+    selInput.style.height = "0";
+    selInput.style.background = "transparent";
+    selInput.style.border = "none";
+    selInput.style.outline = "none";
+    selInput.wheel = selector;
+    selInput.addEventListener("input", function () { this.wheel.content.innerText = this.value; });
+    selInput.addEventListener("focusout", function () { this.wheel.content.style.color = ""; this.value = ""; });
+    selInput.addEventListener("change", onInput);
+
+    selector.appendChild(left);
+    selector.appendChild(selValue)
+    selector.appendChild(selInput);
+    selector.appendChild(right);
+
+    function changeState(event) {
+        let rect = this.getBoundingClientRect();
+        let cursorPosXrel = event.clientX - rect.left;
+        let midPointXrel = (rect.right - rect.left) / 2;
+        if (Math.abs(cursorPosXrel - midPointXrel) - midPointXrel * 0.3 > 0) {
+            this.selectedNumber = this.selectedNumber + Math.sign(cursorPosXrel - midPointXrel);
+            if (this.max != null) {
+                this.selectedNumber = Math.min(this.selectedNumber, this.max);
+            }
+            if (this.min != null) {
+                this.selectedNumber = Math.max(this.selectedNumber, this.min);
+            }
+            this.content.innerText = this.selectedNumber;
+            onChange(event, this.selectedNumber);
+        }
+        else {
+            this.input.focus();
+            this.content.style.color = "red";
+            event.preventDefault();
+        }
+    }
+
+    function onInput(event) {
+        let val = Number(this.value);
+        this.wheel.selectedNumber = val;
+        if (this.wheel.max != null) {
+            this.wheel.selectedNumber = Math.min(this.wheel.selectedNumber, this.wheel.max);
+        }
+        if (this.wheel.min != null) {
+            this.wheel.selectedNumber = Math.max(this.wheel.selectedNumber, this.wheel.min);
+        }
+        this.wheel.content.innerText = this.wheel.selectedNumber;
+        this.wheel.content.style.color = ""; this.value = "";
+        onChange(event, this.wheel.selectedNumber);
+    }
+
+    globals.htmlIDs.unshift(String(id));
+    return selector;
+}
