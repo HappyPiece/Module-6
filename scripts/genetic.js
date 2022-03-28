@@ -37,7 +37,7 @@ class Alg {
         this.elite = Math.round(this.generations * 0.2);
         this.elitism = true;
         this.randomMutationChance = 0.03;
-        this.mutationStabilizationFactor = 0.999;
+        this.mutationStabilizationFactor = 1.0//0.999;
         this.points = [];
         this.population = [];
         this.best = [];
@@ -165,7 +165,7 @@ class Alg {
         if (rand < this.randomMutationChance * 0.5) {//Случайный обмен узлов
             path.swap(Math.floor(Math.random() * path.length), Math.floor(Math.random() * path.length));
         }
-        else if (rand < this.randomMutationChance * 1.66) {//Реверс части генома круто помогает в редких случаях
+        else if (rand < this.randomMutationChance * 2.) {//Реверс части генома круто помогает в редких случаях
             let left = Math.floor(Math.random() * path.length), right = Math.floor(Math.random() * path.length);
             if (right > left) {
                 let t = left;
@@ -555,7 +555,7 @@ function initializeParams() {
         parameterDiv.appendChild(par);
     }
     let updateIntervalS = createCustomSlider(1, 100, 'fpsSlider', "100%", Math.round(1000 / updateInterval), function () { changeUpdateInterval(Math.round(1000 / updateIntervalS.value)); }, (x) => Math.round(1000 / updateInterval));
-    let algStepS = createCustomSlider(1, 6, 'algsteps', "100%", Math.round(Math.log10(globals.algStepInterval)), function () { globals.algStepInterval = Math.pow(10, algStepS.value - 1); }, (x) => Math.pow(10, algStepS.value - 1));
+    let algStepS = createCustomSlider(1, 6, 'algsteps', "100%", Math.round(Math.log10(globals.algStepInterval) + 1), function () { globals.algStepInterval = Math.pow(10, algStepS.value - 1); }, (x) => Math.pow(10, algStepS.value - 1));
     let generationsS = createCustomSlider(1, 25, 'generations', "100%", Math.round(alg.generations / 20), (x) => alg.generations = generationsS.value * 20, (x) => alg.generations);
     // updateIntervalS.style.minWidth = "175px";
     addParameter("Desired TPS", updateIntervalS);

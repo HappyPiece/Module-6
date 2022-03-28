@@ -3,8 +3,8 @@ var canvasWidth = 600;
 var canvasHeight = 600;
 var controlSize = "100px";
 var controlSizeShrunk = "80px";
-var toolMaxSize = 7;
-var toolMinSize = 1;
+var toolMaxSize = 4;
+var toolMinSize = 0;
 var antStep = 1;
 var pheromoneRadius = 1;
 var pheromoneInitStrength = 100;
@@ -15,7 +15,7 @@ var pheromoneDistanceWeight = 0;
 var showPheromones = true;
 var antLimit = 150;
 var maxSpawnAttemptDistance = 6;
-var maxAntTravelDistance = 150;
+var maxAntTravelDistance = 250;
 var antSpawnChance = .5;
 var antRandomMovementThreshold = 0.0045;
 // var antVisionRadius = 1;
@@ -138,7 +138,8 @@ class Ant {
                         if (this.foundTarget.length > 0 && this.foundTarget[2] == globals.id.food && Math.dist(this.foundTarget[0], this.foundTarget[1], this.pos.x, this.pos.y) >= dist || this.foundTarget.length <= 0) {
                             this.foundTarget = [x, y, globals.id.food];
                             this.orientation = this.orientationToward(x, y);
-                            this.state = globals.behavior.track;
+                            this.isCarryingFood = true;
+                            this.state = globals.behavior.return;
                         }
                         break;
 
@@ -205,7 +206,7 @@ class Ant {
         let newpos = [potentialMove[0][0], potentialMove[0][1]];
         for (let index = 1, curr = 0.; index < potentialMove.length; ++index) {
             curr += potentialMove[index][4] / probTotal;
-            if (rand < curr) {
+            if (rand > curr) {
                 newpos = [potentialMove[index][0], potentialMove[index][1]];
             }
         }
@@ -234,7 +235,7 @@ class Ant {
                     }
                 }
                 if (potentialMove.length <= 0 || Math.random() <= antRandomMovementThreshold) {
-                    this.orientation = (this.orientation + Math.sign(Math.random() * 2 - 1)) % 8;
+                    this.orientation = (this.orientation + Math.sign((Math.random() <= 0.5) * 2 - 1) + 8) % 8;
                     break;
                 }
                 let t = potentialMove[Math.floor(Math.random() * 5) % potentialMove.length];
@@ -248,14 +249,14 @@ class Ant {
                 break;
             case globals.behavior.track:
                 let mov;
-                if (this.foundTarget[2] == globals.id.food) {
-                    mov = [Math.sign(this.foundTarget[0] - this.pos.x), Math.sign(this.foundTarget[1] - this.pos.y)];
-                }
-                else {
-                    let newpos = this.nextPheromoneMove();
-                    this.orientation = this.orientationToward(newpos[0], newpos[1]);
-                    mov = [Math.sign(newpos[0] - this.pos.x), Math.sign(newpos[1] - this.pos.y)];
-                }
+                // if (this.foundTarget[2] == globals.id.food) {
+                //     mov = [Math.sign(this.foundTarget[0] - this.pos.x), Math.sign(this.foundTarget[1] - this.pos.y)];
+                // }
+                // else {
+                let newpos = this.nextPheromoneMove();
+                this.orientation = this.orientationToward(newpos[0], newpos[1]);
+                mov = [Math.sign(newpos[0] - this.pos.x), Math.sign(newpos[1] - this.pos.y)];
+                // }
 
                 this.pos.x += mov[0];
                 this.pos.y += mov[1];
@@ -585,7 +586,7 @@ function createCustomCheckbox(id, checked = false, text = "", onChange = functio
 function initializeCanvas() {
     let canvas = document.getElementById("grid");
     initializeContent();
-    let content = document.getElementById('content');
+    let cuntent = document.getElementById('content');
     if (canvas == null) {
         canvas = document.createElement('canvas');
         canvas.id = "grid";
@@ -594,7 +595,7 @@ function initializeCanvas() {
         canvas.style.display = "inline";
         canvas.style.border = "0.2vmin solid" + computedStyle.getPropertyValue("--primary");
         // canvas.style.alignSelf = "center";        
-        content.appendChild(canvas);
+        cuntent.appendChild(canvas);
         // canvas.addEventListener("click", onCanvasClicked);
         canvas.addEventListener("mousedown", onCanvasMouseDown);
         document.addEventListener("mouseup", function () { globals.toolButtonDown = false; globals.mousepos = []; });
@@ -656,31 +657,31 @@ function initializeParams() {
     addParameter("Pheromone Exist Threshold", pheromoneExistThresholdS);
     addParameter(null, createCustomCheckbox('bloomCb', globals.bloom, "Bloom", function () { this.checkbox.checked ? context.disableBloom() : context.enableBloom(); }));
     addParameter(null, createCustomCheckbox('mouselagCb', globals.mouseLagComp, "Fix Mouse Lag", function () { globals.mouseLagComp = !this.checkbox.checked; }));
-    addParameter(null, createCustomCheckbox("pheromoneCb", false, "Pheromones", function () { showPheromones = !this.checkbox.checked; }))
+    addParameter(null, createCustomCheckbox("pheromoneCb", showPheromones, "Pheromones", function () { showPheromones = !this.checkbox.checked; }))
 
-    content.appendChild(parameterDiv);
+    document.getElementById('content').appendChild(parameterDiv);
 }
 
 function initializeContent() {
-    let content = document.getElementById('content');
-    if (!content) {
+    let cuntent = document.getElementById('content');
+    if (!cuntent) {
         alert("unable to find div id=content, creating");
-        content = document.createElement("div");
-        content.id = "content";
+        cuntent = document.createElement("div");
+        cuntent.id = "content";
         document.body.appendChild(content);
         //globals.htmlIDs.unshift("content");
     }
-    content.style.alignContent = "center";
-    content.style.textAlign = "center";
-    content.style.display = "block";
-    content.ondragstart = function () { return false; };
-    return content;
+    cuntent.style.alignContent = "center";
+    cuntent.style.textAlign = "center";
+    cuntent.style.display = "block";
+    cuntent.ondragstart = function () { return false; };
+    return cuntent;
 }
 
 function initializeControls() {
-    let content = document.getElementById('content');
-    if (!content) {
-        content = initializeContent();
+    let cuntent = document.getElementById('content');
+    if (!cuntent) {
+        cuntent = initializeContent();
     }
 
     let controls = document.getElementById("controls");
@@ -731,7 +732,7 @@ function initializeControls() {
     tools.appendChild(toolSizeSlider);
     tools.appendChild(pauseButton);
     controls.appendChild(tools);
-    content.appendChild(controls);
+    cuntent.appendChild(controls);
 
     //footer fix
     let ff = document.createElement('div');
@@ -780,21 +781,20 @@ function initialize() {
     initializeControls();
 }
 
-function draw() {
-
-    function fill(x, y, width, height, color) {
-        let index;
-        for (let xx = x; xx < x + width; ++xx) {
-            for (let yy = y; yy < y + height; ++yy) {
-                index = 4 * (canvasWidth * yy + xx);
-                drawBuffer[index + 0] = color.r;
-                drawBuffer[index + 1] = color.g;
-                drawBuffer[index + 2] = color.b;
-                drawBuffer[index + 3] = color.a;
-            }
+function fill(x, y, width, height, color) {
+    let index;
+    for (let xx = x; xx < x + width; ++xx) {
+        for (let yy = y; yy < y + height; ++yy) {
+            index = 4 * (canvasWidth * yy + xx);
+            drawBuffer[index + 0] = color.r;
+            drawBuffer[index + 1] = color.g;
+            drawBuffer[index + 2] = color.b;
+            drawBuffer[index + 3] = color.a;
         }
     }
+}
 
+function draw() {
 
     fill(0, 0, canvasWidth, canvasHeight, globals.colorsExperimental[globals.id.empty]);
 
@@ -963,7 +963,7 @@ function onKeyDown(event) {
     globals.shiftKeyDown = (/Shift/.test(event.code) || event.which == 16);
     console.log(event.which);
     if (/Digit[1234]/.test(event.code) || 48 < event.which && event.which < 53) {
-        let num = Number(String(event.code)[5]);
+        let num = Number(event.which) - 48;
         globals.selectedTool = (num) % globals.htmlControlsIDs.length;
 
         if (globals.selectedToolElement) {
