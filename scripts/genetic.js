@@ -22,7 +22,6 @@ class Globals {
         this.bloom = false;
         this.showAllTimeBest = true;
         this.algStepInterval = 1;
-        this.generations = 100;
         this.mousepos = [];
     }
 }
@@ -33,9 +32,11 @@ class Alg {
         this.stepCount = 0;
         this.isRunning = false;
         this.isFinished = false;
-        this.populationSampleSize = 20;
+        this.populationSampleSize = 100;
+        this.generations = 500;
+        this.elite = Math.round(this.generations * 0.2);
         this.randomMutationChance = 0.03;
-        this.mutationStabilizationFactor = 0.8;
+        this.mutationStabilizationFactor = 0.999;
         this.points = [];
         this.population = [];
         this.best = [];
@@ -56,7 +57,7 @@ class Alg {
         this.best.fitScore = -1;
         this.generationBest = [];
         this.generationBest.fitScore = -1;
-        this.randomMutationChance = 0.03
+        this.randomMutationChance = 0.03;
     }
 
     step() {
@@ -157,7 +158,11 @@ class Alg {
         this.population.sort((a, b) => b.fitScore - a.fitScore);
         this.generationBest.fitScore = -1;
         for (; index < half; ++index) {
-            population[index] = this.pickGenomeByFitness();
+            if (index < this.elite) {
+                population[index] = this.population[index];
+            } else {
+                population[index] = this.pickGenomeByFitness();
+            }
         }
         let offspring = [];
         for (index = half; index < this.populationSampleSize; index += 2) {
@@ -694,10 +699,11 @@ function update() {
             alg.step();
         }
     }
-    if (alg.stepCount >= globals.generations) {
+    if (alg.stepCount >= alg.generations || alg.isFinished) {
         alg.stop();
         document.getElementById("start").changeText("Reset");
         pause();
+        return;
     }
     draw();
 }
