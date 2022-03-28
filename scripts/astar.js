@@ -630,6 +630,7 @@ function createCustomNumberSelection(id, width, init = 0, min = null, max = null
             this.wheel.selectedNumber = Math.max(this.wheel.selectedNumber, this.wheel.min);
         }
         this.wheel.content.innerText = this.wheel.selectedNumber;
+        this.wheel.content.style.color = ""; this.value = "";
         onChange(event, this.wheel.selectedNumber);
     }
 
