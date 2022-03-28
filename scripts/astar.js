@@ -389,7 +389,7 @@ function registerCustomButton() {
 
 function registerCustomselectionwheel() {
     let style = `
-    .selwheel{
+    .sel-wheel{
         display: inline-block;
         border: solid ${computedStyle.getPropertyValue("--primary")} 1px;
         background-color: ${computedStyle.getPropertyValue("--onBackground")};
@@ -397,18 +397,19 @@ function registerCustomselectionwheel() {
         margin-top: 4px;
         margin-bottom: 4px;
         height: 3vmin;
+        transition: background-color 100ms, color 100ms;
     }
-    .selwheelArrowL{
+    .sel-wheel-ArrowL{
         left: 10%;
         display: inline;
         position: absolute;
     }
-    .selwheelArrowR{
+    .sel-wheel-ArrowR{
         right: 10%;
         display: inline;
         position: absolute;
     }
-    .selwheel:hover{
+    .sel-wheel:hover{
         background-color: ${computedStyle.getPropertyValue("--primary")};
         color: ${computedStyle.getPropertyValue("--onBackground")};
     }
@@ -522,7 +523,7 @@ function createCustomSelectionWheel(id, width, sOptionList = ["none"], optionCha
     }
     let selwheel = document.createElement("div");
     selwheel.id = String(id);
-    selwheel.className = 'selwheel';
+    selwheel.className = 'sel-wheel';
     selwheel.selectedOption = sOptionList[0];
     selwheel.selectedOptionIndex = 0;
     selwheel.optionList = sOptionList;
@@ -532,8 +533,8 @@ function createCustomSelectionWheel(id, width, sOptionList = ["none"], optionCha
     let ddText = document.createElement("span");
     left.innerText = "<";
     right.innerText = ">";
-    left.className = "selwheelArrowL";
-    right.className = "selwheelArrowR";
+    left.className = "sel-wheel-ArrowL";
+    right.className = "sel-wheel-ArrowR";
     ddText.style.display = "inline-block";
     ddText.innerText = selwheel.selectedOption;
     selwheel.content = ddText;
@@ -561,7 +562,7 @@ function createCustomSelectionWheel(id, width, sOptionList = ["none"], optionCha
 function createCustomNumberSelection(id, width, init = 0, min = null, max = null, onChange = function () { return true; }) {
     let selector = document.createElement("div");
     selector.id = String(id);
-    selector.className = 'selwheel';
+    selector.className = 'sel-wheel';
     selector.selectedNumber = init;
     selector.min = min;
     selector.max = max;
@@ -569,17 +570,32 @@ function createCustomNumberSelection(id, width, init = 0, min = null, max = null
     selector.style.width = width ? String(width) : "100%";
     let left = document.createElement("div"), right = document.createElement("div");
     let selValue = document.createElement("span");
+    let selInput = document.createElement("input");
+    selector.input = selInput;
 
     left.innerText = "<";
     right.innerText = ">";
-    left.className = "selwheelArrowL";
-    right.className = "selwheelArrowR";
+    left.className = "sel-wheel-ArrowL";
+    right.className = "sel-wheel-ArrowR";
     selValue.style.display = "inline-block";
     selValue.innerText = selector.selectedNumber;
     selector.content = selValue;
 
+    selInput.type = "text";
+    selInput.style.position = "absolute";
+    selInput.style.width = "0";
+    selInput.style.height = "0";
+    selInput.style.background = "transparent";
+    selInput.style.border = "none";
+    selInput.style.outline = "none";
+    selInput.wheel = selector;
+    selInput.addEventListener("input", function () { this.wheel.content.innerText = this.value; });
+    selInput.addEventListener("focusout", function () { this.wheel.content.style.color = ""; this.value = ""; });
+    selInput.addEventListener("change", onInput);
+
     selector.appendChild(left);
     selector.appendChild(selValue)
+    selector.appendChild(selInput);
     selector.appendChild(right);
 
     function changeState(event) {
@@ -594,13 +610,27 @@ function createCustomNumberSelection(id, width, init = 0, min = null, max = null
             if (this.min != null) {
                 this.selectedNumber = Math.max(this.selectedNumber, this.min);
             }
+            this.content.innerText = this.selectedNumber;
+            onChange(event, this.selectedNumber);
         }
         else {
-            console.log("enter input: ");
-
+            this.input.focus();
+            this.content.style.color = "red";
+            event.preventDefault();
         }
-        this.content.innerText = this.selectedNumber;
-        onChange(event, this.selectedNumber);
+    }
+
+    function onInput(event) {
+        let val = Number(this.value);
+        this.wheel.selectedNumber = val;
+        if (this.wheel.max != null) {
+            this.wheel.selectedNumber = Math.min(this.wheel.selectedNumber, this.wheel.max);
+        }
+        if (this.wheel.min != null) {
+            this.wheel.selectedNumber = Math.max(this.wheel.selectedNumber, this.wheel.min);
+        }
+        this.wheel.content.innerText = this.wheel.selectedNumber;
+        onChange(event, this.wheel.selectedNumber);
     }
 
     globals.htmlIDs.unshift(String(id));
