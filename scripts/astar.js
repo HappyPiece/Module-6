@@ -174,11 +174,13 @@ class Alg {
         }
         do {
             if (this.open.length <= 0) {
-                alert("Couldn't find path");
+                let notfoundsound = new Audio(srcPath + '404.wav');
+                notfoundsound.play();
                 this.startingPoint.value = globals.id.end;
                 pause();
                 document.getElementById('begin').changeText("Restart");
                 this.isFinished = true;
+                alert("Couldn't find path");
                 return;
             }
             let foundIndex = 0;
@@ -266,7 +268,7 @@ function registerCustomSlider() {
           }
 ` ;
     var styleSheet = document.createElement('style');
-    styleSheet.innerText = sliderStyle;
+    styleSheet.innerText = sliderStyle.replace(/\n/g, " ").replace(/\s\s/g, "");
     styleSheet.id = "slider-styles";
     document.head.appendChild(styleSheet);
     globals.htmlIDs.unshift("slider-styles");
@@ -320,8 +322,8 @@ function registerCustomCheckbox() {
         border: 0.2vmin solid ${computedStyle.getPropertyValue("--primary")};
         top: 0;
         left: 0;
-        height: 17px;
-        width: 17px;        
+        height: 2.4vmin;
+        width: 2.4vmin;        
         background-color: ${sliderBackgroundColor};
       }
       
@@ -355,7 +357,7 @@ function registerCustomCheckbox() {
       }
 ` ;
     var styleSheet = document.createElement('style');
-    styleSheet.innerText = checkboxStyle;
+    styleSheet.innerText = checkboxStyle.replace(/\n/g, " ").replace(/\s\s/g, "");
     styleSheet.id = "checkbox-styles";
     document.head.appendChild(styleSheet);
     globals.htmlIDs.unshift("checkbox-styles");
@@ -368,7 +370,8 @@ function registerCustomButton() {
         border: solid ${computedStyle.getPropertyValue("--primary")} 1px;
         background-color: ${computedStyle.getPropertyValue("--onBackground")};
         text-align: center;
-        padding: 4px;
+        // padding: 4px;
+        height: 3vmin;
         transition: background-color 100ms, color 100ms;
         // border-radius: 0.4vmin;
     }
@@ -378,10 +381,43 @@ function registerCustomButton() {
     }
 `;
     let styleSheet = document.createElement('style');
-    styleSheet.innerText = style;
+    styleSheet.innerText = style.replace(/\n/g, " ").replace(/\s\s/g, "");
     styleSheet.id = "button-styles";
     document.head.appendChild(styleSheet);
     globals.htmlIDs.unshift("button-styles");
+}
+
+function registerCustomselectionwheel() {
+    let style = `
+    .selwheel{
+        display: inline-block;
+        border: solid ${computedStyle.getPropertyValue("--primary")} 1px;
+        background-color: ${computedStyle.getPropertyValue("--onBackground")};
+        text-align: center;
+        margin-top: 4px;
+        margin-bottom: 4px;
+        height: 3vmin;
+    }
+    .selwheelArrowL{
+        left: 10%;
+        display: inline;
+        position: absolute;
+    }
+    .selwheelArrowR{
+        right: 10%;
+        display: inline;
+        position: absolute;
+    }
+    .selwheel:hover{
+        background-color: ${computedStyle.getPropertyValue("--primary")};
+        color: ${computedStyle.getPropertyValue("--onBackground")};
+    }
+`;
+    let styleSheet = document.createElement('style');
+    styleSheet.innerText = style.replace(/\n/g, " ").replace(/\s\s/g, "");
+    styleSheet.id = "selwheel-styles";
+    document.head.appendChild(styleSheet);
+    globals.htmlIDs.unshift("selwheel-styles");
 }
 
 function createCustomSlider(min, max, id, width = null, value = 0, onChange = function () { return true; }, popUpValue = null) {
@@ -480,6 +516,97 @@ function createCustomButton(id, text, cssWidth = null, onClick = function () { r
     return button;
 }
 
+function createCustomSelectionWheel(id, width, sOptionList = ["none"], optionChangeHandler = function () { return true; }) {
+    if (sOptionList.length < 1) {
+        return false;
+    }
+    let selwheel = document.createElement("div");
+    selwheel.id = String(id);
+    selwheel.className = 'selwheel';
+    selwheel.selectedOption = sOptionList[0];
+    selwheel.selectedOptionIndex = 0;
+    selwheel.optionList = sOptionList;
+    selwheel.addEventListener("mousedown", changeState);
+    selwheel.style.width = width ? String(width) : "100%";
+    let left = document.createElement("div"), right = document.createElement("div");
+    let ddText = document.createElement("span");
+    left.innerText = "<";
+    right.innerText = ">";
+    left.className = "selwheelArrowL";
+    right.className = "selwheelArrowR";
+    ddText.style.display = "inline-block";
+    ddText.innerText = selwheel.selectedOption;
+    selwheel.content = ddText;
+
+    selwheel.appendChild(left);
+    selwheel.appendChild(ddText)
+    selwheel.appendChild(right);
+
+    function changeState(event) {
+        let rect = this.getBoundingClientRect();
+        this.selectedOptionIndex = (this.selectedOptionIndex + Math.sign(event.clientX - rect.left - (rect.right - rect.left) / 2) + this.optionList.length) % this.optionList.length;
+        this.selectedOption = this.optionList[this.selectedOptionIndex];
+        this.content.innerText = this.selectedOption;
+        optionChangeHandler(event, this.selectedOption);
+    }
+
+    selwheel.appendOption = function (option) {
+        this.optionList.push(option);
+    }
+
+    globals.htmlIDs.unshift(String(id));
+    return selwheel;
+}
+
+function createCustomNumberSelection(id, width, init = 0, min = null, max = null, onChange = function () { return true; }) {
+    let selector = document.createElement("div");
+    selector.id = String(id);
+    selector.className = 'selwheel';
+    selector.selectedNumber = init;
+    selector.min = min;
+    selector.max = max;
+    selector.addEventListener("mousedown", changeState);
+    selector.style.width = width ? String(width) : "100%";
+    let left = document.createElement("div"), right = document.createElement("div");
+    let selValue = document.createElement("span");
+
+    left.innerText = "<";
+    right.innerText = ">";
+    left.className = "selwheelArrowL";
+    right.className = "selwheelArrowR";
+    selValue.style.display = "inline-block";
+    selValue.innerText = selector.selectedNumber;
+    selector.content = selValue;
+
+    selector.appendChild(left);
+    selector.appendChild(selValue)
+    selector.appendChild(right);
+
+    function changeState(event) {
+        let rect = this.getBoundingClientRect();
+        let cursorPosXrel = event.clientX - rect.left;
+        let midPointXrel = (rect.right - rect.left) / 2;
+        if (Math.abs(cursorPosXrel - midPointXrel) - midPointXrel * 0.3 > 0) {
+            this.selectedNumber = this.selectedNumber + Math.sign(cursorPosXrel - midPointXrel);
+            if (this.max != null) {
+                this.selectedNumber = Math.min(this.selectedNumber, this.max);
+            }
+            if (this.min != null) {
+                this.selectedNumber = Math.max(this.selectedNumber, this.min);
+            }
+        }
+        else {
+            console.log("enter input: ");
+
+        }
+        this.content.innerText = this.selectedNumber;
+        onChange(event, this.selectedNumber);
+    }
+
+    globals.htmlIDs.unshift(String(id));
+    return selector;
+}
+
 function initializeCanvas() {
     let canvas = document.getElementById("grid");
     initializeContent();
@@ -530,7 +657,7 @@ function initializeParams() {
     globals.htmlIDs.unshift("parameters");
     function addParameter(name, inputContainer) {
         let par = document.createElement("div");
-        par.display = "block";
+        // par.style.display = "block";
         if (name) {
             let text = document.createElement('p');
             text.innerText = name + " ";
@@ -545,6 +672,7 @@ function initializeParams() {
     updateIntervalS.style.minWidth = "175px";
     let gridSizeS = createCustomSlider(1, 5, 'gridResize', "100%", Math.round(gridSize / 25), function () { resizeGrid(this.value < 5 ? Math.round(this.value * 25) : 600); }, (x) => gridSize);
     let begin = createCustomButton('begin', "Begin Pathfinding", "100%", onStartButton);
+    let test = createCustomSelectionWheel("seltest", "100%", ["1", "2", "penis"], testSelHandler);
     begin.style.marginTop = "5px";
     addParameter("Desired TPS", updateIntervalS);
     addParameter("Grid Size", gridSizeS);
@@ -552,8 +680,18 @@ function initializeParams() {
     addParameter(null, createCustomCheckbox('generate', false, "Generate Maze", function () { this.checkbox.checked = true; alg.reset(); grid.clearGrid(); grid.genMaze(); }));
     addParameter(null, createCustomCheckbox('openDist', false, "Faster", function () { if (globals.paused == false) this.checkbox.checked = !this.checkbox.checked; else prioritizeOpenDistance = this.checkbox.checked; }));
     addParameter(null, begin);
+    addParameter(null, test);
+    addParameter("ASDFG:", createCustomNumberSelection("testns", "100%", 1, 0, 10, testNumSelHandler));
 
     document.getElementById('content').appendChild(parameterDiv);
+}
+
+function testSelHandler(event, option) {
+    return 0;
+}
+function testNumSelHandler(event, number) {
+    // console.log(number);
+    return 0;
 }
 
 function initializeContent() {
@@ -674,6 +812,7 @@ function initialize() {
     registerCustomSlider();
     registerCustomCheckbox();
     registerCustomButton();
+    registerCustomselectionwheel();
     initializeCanvas();
     initializeControls();
 }
