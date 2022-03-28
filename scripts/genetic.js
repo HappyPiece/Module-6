@@ -37,7 +37,7 @@ class Alg {
         this.elite = Math.round(this.generations * 0.2);
         this.elitism = true;
         this.randomMutationChance = 0.03;
-        this.mutationStabilizationFactor = 1.0//0.999;
+        this.mutationStabilizationFactor = 1.0;//0.999;
         this.points = [];
         this.population = [];
         this.best = [];
@@ -315,7 +315,7 @@ function registerCustomSlider() {
             cursor: pointer;
           }
 ` ;
-    var styleSheet = document.createElement('style');
+    let styleSheet = document.createElement('style');
     styleSheet.innerText = sliderStyle;
     styleSheet.id = "slider-styles";
     document.head.appendChild(styleSheet);
@@ -354,9 +354,8 @@ function registerCustomCheckbox() {
         -ms-user-select: none;
         user-select: none;
       }
-      
-      /* Hide the browser's default checkbox */
-      .checkboxContainer input {
+
+    .checkboxContainer input {
         position: absolute;
         opacity: 0;
         cursor: pointer;
@@ -364,7 +363,6 @@ function registerCustomCheckbox() {
         width: 0;
       }
       
-      /* Create a custom checkbox */
       .checkmark {
         position: absolute;
         border: 0.2vmin solid ${computedStyle.getPropertyValue("--primary")};
@@ -374,26 +372,21 @@ function registerCustomCheckbox() {
         width: 17px;        
         background-color: ${sliderBackgroundColor};
       }
-      
 
-      /* When the checkbox is checked, add a blue background */
       .checkboxContainer input:checked ~ .checkmark {
         background-color: ${sliderThumbColor};
       }
       
-      /* Create the checkmark/indicator (hidden when not checked) */
       .checkmark:after {
         content: "";
         position: absolute;
         display: none;
       }
       
-      /* Show the checkmark when checked */
       .checkboxContainer input:checked ~ .checkmark:after {
         display: block;
       }
       
-      /* Style the checkmark/indicator */
       .checkboxContainer .checkmark:after {
         left: 9px;
         top: 5px;
@@ -409,6 +402,29 @@ function registerCustomCheckbox() {
     styleSheet.id = "checkbox-styles";
     document.head.appendChild(styleSheet);
     globals.htmlIDs.unshift("checkbox-styles");
+}
+
+function registerCustomButton() {
+    let style = `
+    .button{
+        display: inline-block;
+        border: solid ${computedStyle.getPropertyValue("--primary")} 1px;
+        background-color: ${computedStyle.getPropertyValue("--onBackground")};
+        text-align: center;
+        padding: 4px;
+        transition: background-color 100ms, color 100ms;
+        // border-radius: 0.4vmin;
+    }
+    .button:hover{
+        background-color: ${computedStyle.getPropertyValue("--primary")};
+        color: ${computedStyle.getPropertyValue("--onBackground")};
+    }
+`;
+    let styleSheet = document.createElement('style');
+    styleSheet.innerText = style;
+    styleSheet.id = "button-styles";
+    document.head.appendChild(styleSheet);
+    globals.htmlIDs.unshift("button-styles");
 }
 
 function createCustomSlider(min, max, id, width = null, value = 0, onChange = function () { return true; }, popUpValue = null) {
@@ -494,6 +510,24 @@ function createCustomCheckbox(id, checked = false, text = "", onChange = functio
     return cbContainer;
 }
 
+function createCustomButton(id, text, cssWidth = null, onClick = function () { return true; }) {
+    let button = document.createElement("div");
+    // let bText = document.createElement("span");
+    button.id = String(id);
+    button.className = "button";
+    button.innerText = String(text);
+    if (cssWidth) {
+        button.style.width = String(cssWidth);
+    }
+    // bText.innerText = String(text);
+    button.changeText = function (newText) {
+        this.innerText = String(newText);
+    }
+    button.addEventListener("mousedown", onClick);
+    // button.appendChild(bText);
+    return button;
+}
+
 function initializeCanvas() {
     let canvas = document.getElementById("grid");
     initializeContent();
@@ -557,6 +591,8 @@ function initializeParams() {
     let updateIntervalS = createCustomSlider(1, 100, 'fpsSlider', "100%", Math.round(1000 / updateInterval), function () { changeUpdateInterval(Math.round(1000 / updateIntervalS.value)); }, (x) => Math.round(1000 / updateInterval));
     let algStepS = createCustomSlider(1, 6, 'algsteps', "100%", Math.round(Math.log10(globals.algStepInterval) + 1), function () { globals.algStepInterval = Math.pow(10, algStepS.value - 1); }, (x) => Math.pow(10, algStepS.value - 1));
     let generationsS = createCustomSlider(1, 25, 'generations', "100%", Math.round(alg.generations / 20), (x) => alg.generations = generationsS.value * 20, (x) => alg.generations);
+    let startButton = createCustomButton('start', "Start", "100%", onStartButton);
+    startButton.style.marginTop = "5px";
     // updateIntervalS.style.minWidth = "175px";
     addParameter("Desired TPS", updateIntervalS);
     addParameter("Generations Per Tick", algStepS);
@@ -564,7 +600,7 @@ function initializeParams() {
     addParameter(null, createCustomCheckbox('bloomCb', false, "Bloom", function () { this.checkbox.checked ? context.disableBloom() : context.enableBloom(); }));
     addParameter(null, createCustomCheckbox('atb', globals.showAllTimeBest, "Show All Time Best", function () { globals.showAllTimeBest = !this.checkbox.checked; }));
     addParameter(null, createCustomCheckbox('elitism', alg.elitism, "Allow Elitism", function () { alg.elitism = !this.checkbox.checked }));
-    addParameter(null, createCustomCheckbox('start', false, "Start", onStartButton));
+    addParameter(null, startButton);
 
     document.getElementById('content').appendChild(parameterDiv);
 }
@@ -600,6 +636,7 @@ function initialize() {
     computedStyle = getComputedStyle(document.body);
     registerCustomSlider();
     registerCustomCheckbox();
+    registerCustomButton();
     initializeCanvas();
     window.addEventListener("keydown", onKeyDown);
 }
@@ -691,8 +728,6 @@ function onCanvasMouseDown(event) {
 }
 
 function onStartButton() {
-    this.checkbox.checked = true;
-
     if (!alg.isRunning && !alg.isFinished) {
         if (!alg.start()) {
             return;

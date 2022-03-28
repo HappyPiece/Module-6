@@ -361,6 +361,29 @@ function registerCustomCheckbox() {
     globals.htmlIDs.unshift("checkbox-styles");
 }
 
+function registerCustomButton() {
+    let style = `
+    .button{
+        display: inline-block;
+        border: solid ${computedStyle.getPropertyValue("--primary")} 1px;
+        background-color: ${computedStyle.getPropertyValue("--onBackground")};
+        text-align: center;
+        padding: 4px;
+        transition: background-color 100ms, color 100ms;
+        // border-radius: 0.4vmin;
+    }
+    .button:hover{
+        background-color: ${computedStyle.getPropertyValue("--primary")};
+        color: ${computedStyle.getPropertyValue("--onBackground")};
+    }
+`;
+    let styleSheet = document.createElement('style');
+    styleSheet.innerText = style;
+    styleSheet.id = "button-styles";
+    document.head.appendChild(styleSheet);
+    globals.htmlIDs.unshift("button-styles");
+}
+
 function createCustomSlider(min, max, id, width = null, value = 0, onChange = function () { return true; }, popUpValue = null) {
     let slider = document.createElement("input");
     slider.className = "slider";
@@ -439,6 +462,24 @@ function createCustomCheckbox(id, checked = false, text = "", onChange = functio
     return cbContainer;
 }
 
+function createCustomButton(id, text, cssWidth = null, onClick = function () { return true; }) {
+    let button = document.createElement("div");
+    // let bText = document.createElement("span");
+    button.id = String(id);
+    button.className = "button";
+    button.innerText = String(text);
+    if (cssWidth) {
+        button.style.width = String(cssWidth);
+    }
+    // bText.innerText = String(text);
+    button.changeText = function (newText) {
+        this.innerText = String(newText);
+    }
+    button.addEventListener("mousedown", onClick);
+    // button.appendChild(bText);
+    return button;
+}
+
 function initializeCanvas() {
     let canvas = document.getElementById("grid");
     initializeContent();
@@ -503,12 +544,14 @@ function initializeParams() {
     let updateIntervalS = createCustomSlider(1, 200, 'fpsSlider', "100%", Math.round(1000 / updateInterval), function () { changeUpdateInterval(Math.round(1000 / updateIntervalS.value)); }, (x) => Math.round(1000 / updateInterval));
     updateIntervalS.style.minWidth = "175px";
     let gridSizeS = createCustomSlider(1, 5, 'gridResize', "100%", Math.round(gridSize / 25), function () { resizeGrid(this.value < 5 ? Math.round(this.value * 25) : 600); }, (x) => gridSize);
+    let begin = createCustomButton('begin', "Begin Pathfinding", "100%", onStartButton);
+    begin.style.marginTop = "5px";
     addParameter("Desired TPS", updateIntervalS);
     addParameter("Grid Size", gridSizeS);
     addParameter(null, createCustomCheckbox('bloomCb', false, "Bloom", function () { this.checkbox.checked ? context.disableBloom() : context.enableBloom(); }));
     addParameter(null, createCustomCheckbox('generate', false, "Generate Maze", function () { this.checkbox.checked = true; alg.reset(); grid.clearGrid(); grid.genMaze(); }));
-    addParameter(null, createCustomCheckbox('openDist', false, "Faster", function () { prioritizeOpenDistance = this.checkbox.checked; }));
-    addParameter(null, createCustomCheckbox('begin', false, "Begin Pathfinding", onStartButton));
+    addParameter(null, createCustomCheckbox('openDist', false, "Faster", function () { if (globals.paused == false) this.checkbox.checked = !this.checkbox.checked; else prioritizeOpenDistance = this.checkbox.checked; }));
+    addParameter(null, begin);
 
     document.getElementById('content').appendChild(parameterDiv);
 }
@@ -630,6 +673,7 @@ function initialize() {
 
     registerCustomSlider();
     registerCustomCheckbox();
+    registerCustomButton();
     initializeCanvas();
     initializeControls();
 }
@@ -823,7 +867,6 @@ function onCanvasMouseDown(event) {
 }
 
 function onStartButton() {
-    this.checkbox.checked = true;
     if (alg.isFinished) {
         alg.reset();
         grid.clearGrid();
