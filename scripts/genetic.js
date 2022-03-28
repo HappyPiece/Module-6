@@ -29,12 +29,13 @@ globals = new Globals();
 
 class Alg {
     constructor() {
-        this.stepCount = 0;
+        this.genCount = 0;
         this.isRunning = false;
         this.isFinished = false;
         this.populationSampleSize = 100;
-        this.generations = 500;
+        this.generations = 300;
         this.elite = Math.round(this.generations * 0.2);
+        this.elitism = true;
         this.randomMutationChance = 0.03;
         this.mutationStabilizationFactor = 0.999;
         this.points = [];
@@ -50,7 +51,7 @@ class Alg {
     reset() {
         this.isRunning = false;
         this.isFinished = false;
-        this.stepCount = 0;
+        this.genCount = 0;
         this.population = [];
         this.points = [];
         this.best = [];
@@ -61,10 +62,10 @@ class Alg {
     }
 
     step() {
-        this.generateNextPopulation2();
-        this.stepCount++;
+        this.generateNextPopulation();
+        this.genCount++;
         this.randomMutationChance = this.randomMutationChance * this.mutationStabilizationFactor;
-        // this.stepCount = 0;
+        // this.genCount = 0;
         // this.isFinished = !(this.isRunning = false);
     }
 
@@ -96,73 +97,17 @@ class Alg {
     }
 
     generateNextPopulation() {
-        let population = [], fs1, fs2, fsTotal;
-        this.generationBest.fitScore = -1;
-        let index = 0, half = Math.floor(this.populationSampleSize / 2);
-        for (; index <= half; ++index) {
-            population[index] = this.pickPathByFitness();
-        }
-        for (; index < this.populationSampleSize - 1; ++index) {
-            if (((index - half) % 2)) {
-                [population[index], population[index + 1]] = this.crossover(population[Math.floor(Math.random() * 3 * half) % half], population[Math.floor(Math.random() * 3 * half) % half]);
-            }
-            this.mutate(population[index]);
-            this.mutate(population[index - half]);
-            fs1 = this.getFitnessScore(population[index]);
-            if (fs1 > this.best.fitScore) {//Отдельные функции не выделялись, потому что дорогие вычисления fitness score, копипаста по той же причине
-                this.best.clone(population[index]);
-                this.best.fitScore = fs1;
-                this.generationBest.clone(population[index]);
-                this.generationBest.fitScore = fs1;
-            }
-            else if (fs1 > this.generationBest.fitScore) {
-                this.generationBest.clone(population[index]);
-                this.generationBest.fitScore = fs1;
-            }
-            if (fs2 > this.best.fitScore) {
-                this.best.clone(population[index - half]);
-                this.best.fitScore = fs2;
-                this.generationBest.clone(population[index - half]);
-                this.generationBest.fitScore = fs2;
-            }
-            else if (fs2 > this.generationBest.fitScore) {
-                this.generationBest.clone(population[index - half]);
-                this.generationBest.fitScore = fs2;
-            }
-            population[index].fitScore = fs1;
-            population[index - half].fitScore = fs2;
-            fsTotal += fs1 + fs2;
-        }
-        if (this.populationSampleSize % 2) {
-            fs1 = this.getFitnessScore(population[half - 1]);
-            if (fs1 > this.best.fitScore) {
-                this.best.clone(population[index]);
-                this.best.fitScore = fs1;
-                this.generationBest.clone(population[index]);
-                this.generationBest.fitScore = fs1;
-            }
-            else if (fs1 > this.generationBest.fitScore) {
-                this.generationBest.clone(population[index]);
-                this.generationBest.fitScore = fs1;
-            }
-            population[half - 1].fitScore = fs1;
-            fsTotal += fs1;
-        }
-        this.population = population;
-        this.normalizePopulationFitnessScores(fsTotal);
-    }
-
-    generateNextPopulation2() {
         let population = [];
         let index = 0, half = Math.ceil(this.populationSampleSize / 2);
         this.population.sort((a, b) => b.fitScore - a.fitScore);
         this.generationBest.fitScore = -1;
-        for (; index < half; ++index) {
-            if (index < this.elite) {
+        if (this.elitism) {
+            for (; index < this.elite; ++index) {
                 population[index] = this.population[index];
-            } else {
-                population[index] = this.pickGenomeByFitness();
             }
+        }
+        for (; index < half; ++index) {
+            population[index] = this.pickGenomeByFitness();
         }
         let offspring = [];
         for (index = half; index < this.populationSampleSize; index += 2) {
@@ -610,11 +555,14 @@ function initializeParams() {
     }
     let updateIntervalS = createCustomSlider(1, 100, 'fpsSlider', "100%", Math.round(1000 / updateInterval), function () { changeUpdateInterval(Math.round(1000 / updateIntervalS.value)); }, (x) => Math.round(1000 / updateInterval));
     let algStepS = createCustomSlider(1, 6, 'algsteps', "100%", Math.round(Math.log10(globals.algStepInterval)), function () { globals.algStepInterval = Math.pow(10, algStepS.value - 1); }, (x) => Math.pow(10, algStepS.value - 1));
+    let generationsS = createCustomSlider(1, 25, 'generations', "100%", Math.round(alg.generations / 20), (x) => alg.generations = generationsS.value * 20, (x) => alg.generations);
     // updateIntervalS.style.minWidth = "175px";
     addParameter("Desired TPS", updateIntervalS);
-    addParameter("Alg Steps Per Tick", algStepS);
+    addParameter("Generations Per Tick", algStepS);
+    addParameter("Generaitons Overall", generationsS);
     addParameter(null, createCustomCheckbox('bloomCb', false, "Bloom", function () { this.checkbox.checked ? context.disableBloom() : context.enableBloom(); }));
     addParameter(null, createCustomCheckbox('atb', globals.showAllTimeBest, "Show All Time Best", function () { globals.showAllTimeBest = !this.checkbox.checked; }));
+    addParameter(null, createCustomCheckbox('elitism', alg.elitism, "Allow Elitism", function () { alg.elitism = !this.checkbox.checked }));
     addParameter(null, createCustomCheckbox('start', false, "Start", onStartButton));
 
     document.getElementById('content').appendChild(parameterDiv);
@@ -699,7 +647,7 @@ function update() {
             alg.step();
         }
     }
-    if (alg.stepCount >= alg.generations || alg.isFinished) {
+    if (alg.genCount >= alg.generations || alg.isFinished) {
         alg.stop();
         document.getElementById("start").changeText("Reset");
         pause();
