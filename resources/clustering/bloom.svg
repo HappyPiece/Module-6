@@ -1,0 +1,16 @@
+<svg
+   xmlns="http://www.w3.org/2000/svg"
+   width="0"
+   height="0">
+   <defs>
+    <filter
+       id="bloom">
+      <feGaussianBlur
+         in="SourceGraphic"
+         stdDeviation="3" />
+      <feComposite
+         in2="SourceGraphic"
+         operator="arithmetic" k2="0.8" k3="1" />
+    </filter>
+    </defs>
+</svg>

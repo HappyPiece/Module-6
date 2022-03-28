@@ -641,7 +641,7 @@ function createCustomNumberSelection(id, width, init = 0, min = null, max = null
 function initializeCanvas() {
     let canvas = document.getElementById("grid");
     initializeContent();
-    let cuntent = document.getElementById('content');
+    let content = document.getElementById('content');
     if (canvas == null) {
         canvas = document.createElement('canvas');
         canvas.id = "grid";
@@ -650,7 +650,7 @@ function initializeCanvas() {
         canvas.style.display = "inline";
         canvas.style.border = "0.2vmin solid" + computedStyle.getPropertyValue("--primary");
         // canvas.style.alignSelf = "center";        
-        cuntent.appendChild(canvas);
+        content.appendChild(canvas);
         // canvas.addEventListener("click", onCanvasClicked);
         canvas.addEventListener("mousedown", onCanvasMouseDown);
         document.addEventListener("mouseup", function () { globals.toolButtonDown = false; globals.mousepos = [] });
@@ -726,26 +726,26 @@ function testNumSelHandler(event, number) {
 }
 
 function initializeContent() {
-    let cuntent = document.getElementById('content');
-    if (!cuntent) {
+    let content = document.getElementById('content');
+    if (!content) {
         alert("unable to find div id=content, creating");
-        cuntent = document.createElement("div");
-        document.body.appendChild(cuntent);
+        content = document.createElement("div");
+        document.body.appendChild(content);
         //globals.htmlIDs.unshift("content");
     }
-    cuntent.style.alignContent = "center";
-    cuntent.style.textAlign = "center";
-    cuntent.style.display = "block";
-    cuntent.style.userSelect = "none";
-    cuntent.id = "content";
-    cuntent.ondragstart = function () { return false; };
-    return cuntent;
+    content.style.alignContent = "center";
+    content.style.textAlign = "center";
+    content.style.display = "block";
+    content.style.userSelect = "none";
+    content.id = "content";
+    content.ondragstart = function () { return false; };
+    return content;
 }
 
 function initializeControls() {
-    let cuntent = document.getElementById('content');
-    if (!cuntent) {
-        cuntent = initializeContent();
+    let content = document.getElementById('content');
+    if (!content) {
+        content = initializeContent();
     }
 
     let controls = document.getElementById("controls");
@@ -804,7 +804,7 @@ function initializeControls() {
     // tools.appendChild(toolSizeSlider);
     // tools.appendChild(pauseButton);
     controls.appendChild(tools);
-    //cuntent.insertBefore(controls, document.getElementById('grid'));
+    //content.insertBefore(controls, document.getElementById('grid'));
     document.getElementById('parameters').appendChild(controls);
 
     //footer fix
