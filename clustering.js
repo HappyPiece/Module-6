@@ -678,12 +678,7 @@ function createCustomNumberSelection(id, width, init = 0, min = null, max = null
         let midPointXrel = (rect.right - rect.left) / 2;
         if (Math.abs(cursorPosXrel - midPointXrel) - midPointXrel * 0.3 > 0) {
             this.selectedNumber = this.selectedNumber + Math.sign(cursorPosXrel - midPointXrel);
-            if (this.max != null) {
-                this.selectedNumber = Math.min(this.selectedNumber, this.max);
-            }
-            if (this.min != null) {
-                this.selectedNumber = Math.max(this.selectedNumber, this.min);
-            }
+            this.updateValue();
             this.content.innerText = this.selectedNumber;
             onChange(event, this.selectedNumber);
         }
@@ -706,6 +701,15 @@ function createCustomNumberSelection(id, width, init = 0, min = null, max = null
         this.wheel.content.innerText = this.wheel.selectedNumber;
         this.wheel.content.style.color = ""; this.value = "";
         onChange(event, this.wheel.selectedNumber);
+    }
+
+    selector.updateValue = function () {
+        if (this.max != null) {
+            this.selectedNumber = Math.min(this.selectedNumber, this.max);
+        }
+        if (this.min != null) {
+            this.selectedNumber = Math.max(this.selectedNumber, this.min);
+        }
     }
 
     globals.htmlIDs.unshift(String(id));
