@@ -12,16 +12,15 @@ class Globals {
         this.htmlIDs = [];
         this.points = [];
         this.colorsUsedCounter = 0;
+        this.depth = 3;
     }
 }
 
 class Node
 {
     constructor(initRight, initLeft) {
-        this.parent = null;
         this.type = "Node";
         this.right = initRight; this.left = initLeft;
-        this.right.parent = this; this.left.parent = this;    
         this.inwardPoints = this.right.inwardPoints.concat(this.left.inwardPoints);
     }
 }
@@ -31,7 +30,6 @@ var globals = new Globals();
 class Point {
     constructor(initX, initY) {
         this.pos = {x: initX, y: initY};
-        this.parent = [];
         this.type = "Point";
         this.inwardPoints = [this];
     }
@@ -128,24 +126,19 @@ function colorManager()
     return "#"+randColor;
 }
 
-function drawTree(tree, depth = 1)
+function drawTree(tree)
 {
     let counter = 0, levelClusters = [tree], sublevelClusters;
-    while (counter < depth)
+    while (counter < globals.depth)
     {
+        sublevelClusters = [];
         for (cluster of levelClusters)
         {
             if (cluster.type == "Node")
             {
-                let color = colorManager();
-                sublevelClusters = [];
                 sublevelClusters.push(cluster.left);
                 sublevelClusters.push(cluster.right);
-            }
-            else
-            {
-                let color = colorManager();
-                cluster.draw(color);
+                break;
             }
         }
         levelClusters = sublevelClusters;

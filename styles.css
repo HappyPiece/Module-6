@@ -24,6 +24,7 @@ html {
 }
 
 body {
+  user-select: none;
   display: inline;
   font-family: "Nunito";
   margin: 0;
