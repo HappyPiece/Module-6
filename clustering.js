@@ -173,6 +173,8 @@ function drawTree() {
     {
         return false;
     }
+    context.fillStyle = computedStyle.getPropertyValue("--background");
+    context.fillRect(0, 0, canvasWidth, canvasHeight);
     let tree = globals.trees.get(globals.chosenMetric);
     let counter = 0, levelClusters = [tree], sublevelClusters, maxDepth, chosenCluster;
     while ((counter < globals.depth) && (counter < globals.points.length)) {
@@ -233,12 +235,17 @@ function placePoint(x, y) {
             return false;
         }
     }
+    context.fillStyle = computedStyle.getPropertyValue("--background");
+    context.fillRect(0, 0, canvasWidth, canvasHeight);
     let point = new Point(x, y);
     globals.points.push(point);
     let depthSlider = document.getElementById("depth");
     depthSlider.max++;
     depthSlider.updateValue();
-    point.draw();
+    globals.trees = new Map();
+    for (element of globals.points) {
+        element.draw();
+    }
 }
 
 function deletePoint(x, y) {
