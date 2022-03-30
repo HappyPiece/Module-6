@@ -634,6 +634,7 @@ function createCustomNumberSelection(id, width, init = 0, min = null, max = null
         if (this.min != null) {
             this.selectedNumber = Math.max(this.selectedNumber, this.min);
         }
+        this.content.innerText = this.selectedNumber;
     }
 
     globals.htmlIDs.unshift(String(id));
