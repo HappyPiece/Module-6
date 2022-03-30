@@ -16,7 +16,7 @@ class Globals {
         this.htmlIDs = [];
         this.points = [];
         this.colorsUsedCounter = 0;
-        this.depth = 1;
+        this.depth = 0;
     }
 }
 
@@ -124,7 +124,7 @@ function treeDepth(tree) {
 
 function drawTree(tree) {
     let counter = 0, levelClusters = [tree], sublevelClusters, maxDepth, chosenCluster;
-    while (counter < globals.depth) {
+    while ((counter < globals.depth) && (counter < globals.points.length)) {
         maxDepth = -1;
         sublevelClusters = [];
         for (cluster of levelClusters) {
@@ -181,6 +181,7 @@ function placePoint(x, y) {
     }
     let point = new Point(x, y);
     globals.points.push(point);
+    document.getElementById("depth").max ++;
     point.draw();
 }
 
@@ -190,8 +191,14 @@ function deletePoint(x, y) {
         return false;
     }
     else {
-        point.erase();
+        context.fillStyle = computedStyle.getPropertyValue("--background");
+        context.fillRect(0, 0, canvasWidth, canvasHeight);
         globals.points.splice(globals.points.indexOf(point), 1);
+        document.getElementById("depth").max --;
+        for (element of globals.points)
+        {
+            element.draw();
+        }
     }
 }
 
@@ -287,12 +294,30 @@ function initializeParams() {
         par.appendChild(inputContainer);
         parameterDiv.appendChild(par);
     }
-    let test = createCustomSelectionWheel("seltest", "100%", ["1", "2", "penis"], function () { return false });
+    let metrics = createCustomSelectionWheel("metrics", "100%", ["Closest Points", "none"], function () { return false });
     addParameter(null, createCustomCheckbox('bloomCb', false, "Bloom", function () { this.checkbox.checked ? context.disableBloom() : context.enableBloom(); }));
-    addParameter(null, test);
-    addParameter("ASDFG:", createCustomNumberSelection("testns", "100%", 1, 0, 10, function () { return false }));
-
+    addParameter("Metric:", metrics);
+    addParameter("Clusters number", createCustomNumberSelection("depth", "100%", 0, 0, 0, onDepthSliderChange));
+    addParameter(null, createCustomButton("start", "Clusterize", "100%", onStartButtonClick));
+    addParameter(null, createCustomButton("clear", "Clear", "100%", onClearButtonClick));
     document.getElementById('content').appendChild(parameterDiv);
+}
+
+function onClearButtonClick()
+{
+    globals.points = [];
+    context.fillStyle = computedStyle.getPropertyValue("--background");
+    context.fillRect(0, 0, canvasWidth, canvasHeight);
+}
+
+function onDepthSliderChange(event, number)
+{
+    globals.depth = number - 1;
+}
+
+function onStartButtonClick(event)
+{
+    clusterize(distanceBetweenClosestPoints);
 }
 
 function paramsFade(params) {
