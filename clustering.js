@@ -110,20 +110,19 @@ function distanceBetweenClosestPoints(elem1, elem2) {
     return minDistance;
 }
 
-function distanceBetweenClusterCentres(elem1, elem2)
-{
+function distanceBetweenClusterCentres(elem1, elem2) {
     let minDistance = -1, x = 0, y = 0, center1, center2;
     for (let element of elem1.inwardPoints) {
         x += element.pos.x;
         y += element.pos.y;
     }
-    center1 = {x: x/elem1.inwardPoints.length, y: y/elem1.inwardPoints.length};
+    center1 = { x: x / elem1.inwardPoints.length, y: y / elem1.inwardPoints.length };
     x = 0; y = 0;
     for (let element of elem2.inwardPoints) {
         x += element.pos.x;
         y += element.pos.y;
     }
-    center2 = {x: x/elem2.inwardPoints.length, y: y/elem2.inwardPoints.length};
+    center2 = { x: x / elem2.inwardPoints.length, y: y / elem2.inwardPoints.length };
     let distance = Math.sqrt((center1.x - center2.x) * (center1.x - center2.x) + (center1.y - center2.y) * (center1.y - center2.y));
     return distance;
 }
@@ -331,8 +330,7 @@ function initializeParams() {
     document.getElementById('content').appendChild(parameterDiv);
 }
 
-function onChosenMetricChange(event, value)
-{
+function onChosenMetricChange(event, value) {
     globals.chosenMetric = metricsMap.get(value);
     drawTree();
 }
@@ -505,6 +503,7 @@ function registerCustomButton() {
         background-color: ${computedStyle.getPropertyValue("--onBackground")};
         text-align: center;
         // padding: 4px;
+        margin-bottom: 4px;
         height: 3vmin;
         transition: background-color 100ms, color 100ms;
         // border-radius: 0.4vmin;
