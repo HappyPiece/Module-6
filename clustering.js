@@ -70,6 +70,10 @@ Array.prototype.clone = function (array) {
 
 function clusterize(comparator = distanceBetweenClosestPoints) {
     let minDistance, chosen, points = [].clone(globals.points);
+    if (points.length == 0)
+    {
+        return false;
+    }
     for (let counter = 0; counter < globals.points.length - 1; counter++) {
         chosen = [];
         minDistance = -1;
@@ -146,6 +150,10 @@ function treeDepth(tree) {
 }
 
 function drawTree() {
+    if (!globals.trees.has(globals.chosenMetric))
+    {
+        return false;
+    }
     let tree = globals.trees.get(globals.chosenMetric);
     let counter = 0, levelClusters = [tree], sublevelClusters, maxDepth, chosenCluster;
     while ((counter < globals.depth) && (counter < globals.points.length)) {
@@ -172,7 +180,10 @@ function drawTree() {
     for (cluster of levelClusters) {
         let color = colorManager();
         for (point of cluster.inwardPoints) {
-            point.draw(color);
+            if (globals.points.includes(point))
+            {
+                point.draw(color);
+            }
         }
     }
 }
@@ -244,8 +255,8 @@ function initializeCanvas() {
         canvas.addEventListener("mousedown", onCanvasMouseDown);
     }
     context = canvas.getContext("2d");
-    context.enableBloom = function () { context.canvas.style.filter = "url(" + srcPath + "bloom.svg" + "#bloom)" };
     context.disableBloom = function () { context.canvas.style.filter = "url()"; };
+    context.enableBloom = function () { context.canvas.style.filter = "url(" + srcPath + "bloom.svg" + "#bloom)" };
 }
 
 function removeElements() {
@@ -332,8 +343,7 @@ function initializeParams() {
 
 function onChosenMetricChange(event, value) {
     globals.chosenMetric = metricsMap.get(value);
-    if (globals.trees.length > 0)
-        drawTree();
+    drawTree();
 }
 
 function onClearButtonClick() {
@@ -350,8 +360,10 @@ function onDepthSliderChange(event, number) {
 }
 
 function onStartButtonClick(event) {
-    clusterize(distanceBetweenClosestPoints);
-    clusterize(distanceBetweenClusterCentres);
+    for (metric of metricsMap)
+    {
+        clusterize(metric[1]);
+    }
 }
 
 function paramsFade(params) {
