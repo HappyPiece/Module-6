@@ -206,7 +206,9 @@ function placePoint(x, y) {
     }
     let point = new Point(x, y);
     globals.points.push(point);
-    document.getElementById("depth").max ++;
+    let depthSlider = document.getElementById("depth");
+    depthSlider.max++;
+    depthSlider.updateValue();
     point.draw();
 }
 
@@ -219,9 +221,10 @@ function deletePoint(x, y) {
         context.fillStyle = computedStyle.getPropertyValue("--background");
         context.fillRect(0, 0, canvasWidth, canvasHeight);
         globals.points.splice(globals.points.indexOf(point), 1);
-        document.getElementById("depth").max --;
-        for (element of globals.points)
-        {
+        let depthSlider = document.getElementById("depth");
+        depthSlider.max--;
+        depthSlider.updateValue();
+        for (element of globals.points) {
             element.draw();
         }
     }
@@ -334,20 +337,20 @@ function onChosenMetricChange(event, value)
     drawTree();
 }
 
-function onClearButtonClick()
-{
+function onClearButtonClick() {
     globals.points = [];
+    let depthSlider = document.getElementById("depth");
+    depthSlider.max = 0;
+    depthSlider.updateValue();
     context.fillStyle = computedStyle.getPropertyValue("--background");
     context.fillRect(0, 0, canvasWidth, canvasHeight);
 }
 
-function onDepthSliderChange(event, number)
-{
+function onDepthSliderChange(event, number) {
     globals.depth = number - 1;
 }
 
-function onStartButtonClick(event)
-{
+function onStartButtonClick(event) {
     clusterize(distanceBetweenClosestPoints);
     clusterize(distanceBetweenClusterCentres);
 }
@@ -767,6 +770,8 @@ function createCustomNumberSelection(id, width, init = 0, min = null, max = null
         if (this.min != null) {
             this.selectedNumber = Math.max(this.selectedNumber, this.min);
         }
+        this.content.innerText = this.selectedNumber;
+        onChange(null, this.selectedNumber);
     }
 
     globals.htmlIDs.unshift(String(id));
