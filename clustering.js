@@ -5,6 +5,8 @@ var radius = 10;
 var metricsMap = new Map();
 metricsMap.set("Closest Points", distanceBetweenClosestPoints);
 metricsMap.set("Cluster Centers", distanceBetweenClusterCentres);
+metricsMap.set("Wieghed Cluster Centers", distanceBetweenWeighedClusterCentres);
+
 
 
 var computedStyle;
@@ -115,7 +117,7 @@ function distanceBetweenClosestPoints(elem1, elem2) {
 }
 
 function distanceBetweenClusterCentres(elem1, elem2) {
-    let minDistance = -1, x = 0, y = 0, center1, center2;
+    let x = 0, y = 0, center1, center2;
     for (let element of elem1.inwardPoints) {
         x += element.pos.x;
         y += element.pos.y;
@@ -128,6 +130,23 @@ function distanceBetweenClusterCentres(elem1, elem2) {
     }
     center2 = { x: x / elem2.inwardPoints.length, y: y / elem2.inwardPoints.length };
     let distance = Math.sqrt((center1.x - center2.x) * (center1.x - center2.x) + (center1.y - center2.y) * (center1.y - center2.y));
+    return distance;
+}
+
+function distanceBetweenWeighedClusterCentres(elem1, elem2) {
+    let minDistance = -1, x = 0, y = 0, center1, center2;
+    for (let element of elem1.inwardPoints) {
+        x += element.pos.x;
+        y += element.pos.y;
+    }
+    center1 = { x: x / elem1.inwardPoints.length, y: y / elem1.inwardPoints.length };
+    x = 0; y = 0;
+    for (let element of elem2.inwardPoints) {
+        x += element.pos.x;
+        y += element.pos.y;
+    }
+    center2 = { x: x / elem2.inwardPoints.length, y: y / elem2.inwardPoints.length };
+    let distance = Math.sqrt((center1.x - center2.x) * (center1.x - center2.x) + (center1.y - center2.y) * (center1.y - center2.y))/Math.sqrt(elem1.inwardPoints.length+elem2.inwardPoints.length);
     return distance;
 }
 
@@ -234,6 +253,7 @@ function deletePoint(x, y) {
         let depthSlider = document.getElementById("depth");
         depthSlider.max--;
         depthSlider.updateValue();
+        globals.trees = new Map();
         for (element of globals.points) {
             element.draw();
         }
@@ -332,7 +352,12 @@ function initializeParams() {
         par.appendChild(inputContainer);
         parameterDiv.appendChild(par);
     }
-    let metrics = createCustomSelectionWheel("metrics", "100%", ["Closest Points", "Cluster Centers"], onChosenMetricChange);
+    let avaliableMetrics = [];
+    for (metric of metricsMap)
+    {
+        avaliableMetrics.push(metric[0]);
+    }
+    let metrics = createCustomSelectionWheel("metrics", "100%", avaliableMetrics, onChosenMetricChange);
     addParameter(null, createCustomCheckbox('bloomCb', false, "Bloom", function () { this.checkbox.checked ? context.disableBloom() : context.enableBloom(); }));
     addParameter("Metric:", metrics);
     addParameter("Clusters number", createCustomNumberSelection("depth", "100%", 0, 0, 0, onDepthSliderChange));
@@ -348,6 +373,7 @@ function onChosenMetricChange(event, value) {
 
 function onClearButtonClick() {
     globals.points = [];
+    globals.trees = new Map();
     let depthSlider = document.getElementById("depth");
     depthSlider.max = 0;
     depthSlider.updateValue();
@@ -355,8 +381,9 @@ function onClearButtonClick() {
     context.fillRect(0, 0, canvasWidth, canvasHeight);
 }
 
-function onDepthSliderChange(event, number) {
-    globals.depth = number - 1;
+function onDepthSliderChange(event, value) {
+    globals.depth = value - 1;
+    drawTree();
 }
 
 function onStartButtonClick(event) {
