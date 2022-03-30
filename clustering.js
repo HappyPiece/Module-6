@@ -332,7 +332,8 @@ function initializeParams() {
 
 function onChosenMetricChange(event, value) {
     globals.chosenMetric = metricsMap.get(value);
-    drawTree();
+    if (globals.trees.length > 0)
+        drawTree();
 }
 
 function onClearButtonClick() {
