@@ -948,10 +948,9 @@ function update() {
 }
 
 function placeCellCluster(x, y) {
-    // if (alg.stepCount && !globals.paused && (grid[x][y].value == globals.id.start || grid[x][y].value == globals.id.end)) {
-    //     alert("stop the algorithm to change the environment");
-    //     return;
-    // }
+    if (alg.isFinished || !globals.paused && (grid[x][y].value == globals.id.start || grid[x][y].value == globals.id.end || globals.selectedTool == globals.id.end || globals.selectedTool == globals.id.start)) {
+        return;
+    }
     if (grid[x][y].value == globals.id.start) {
         alg.startingPoint = null;
     } else if (grid[x][y].value == globals.id.end) {
