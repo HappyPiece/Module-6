@@ -36,7 +36,8 @@ class Alg {
         this.generations = 300;
         this.elite = Math.round(this.generations * 0.2);
         this.elitism = true;
-        this.randomMutationChance = 0.03;
+        this.dynamicMutation = false;
+        this.randomMutationChance = 0.05;
         this.mutationStabilizationFactor = 1.0;//0.999;
         this.points = [];
         this.population = [];
@@ -162,6 +163,9 @@ class Alg {
 
     mutate(path) {
         let rand = Math.random();
+        if (this.dynamicMutation && path.fitScore) {
+            rand *= 0.5 - path.fitScore;
+        }
         if (rand < this.randomMutationChance * 0.5) {//Случайный обмен узлов
             path.swap(Math.floor(Math.random() * path.length), Math.floor(Math.random() * path.length));
         }
@@ -600,6 +604,7 @@ function initializeParams() {
     addParameter(null, createCustomCheckbox('bloomCb', false, "Bloom", function () { this.checkbox.checked ? context.disableBloom() : context.enableBloom(); }));
     addParameter(null, createCustomCheckbox('atb', globals.showAllTimeBest, "Show All Time Best", function () { globals.showAllTimeBest = !this.checkbox.checked; }));
     addParameter(null, createCustomCheckbox('elitism', alg.elitism, "Allow Elitism", function () { alg.elitism = !this.checkbox.checked }));
+    addParameter(null, createCustomCheckbox('mutchance', alg.dynamicMutation, "Dynamic Mutation Chance", function () { alg.dynamicMutation = !this.checkbox.checked }));
     addParameter(null, startButton);
 
     document.getElementById('content').appendChild(parameterDiv);

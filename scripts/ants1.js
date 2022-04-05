@@ -1,7 +1,6 @@
 var srcPath = "./resources/ants/";
 var canvasWidth = 900;
 var canvasHeight = 600;
-var fitScoreBase = 1;
 
 var updateInterval = 25;
 var updateFunctionIntervalId;
@@ -20,7 +19,7 @@ class Globals {
         this.htmlIDs = [];
         this.toolButtonDown = false;
         this.bloom = false;
-        this.showAllTimeBest = true;
+        this.showBest = true;
         this.algStepInterval = 10;
         this.mousepos = [];
     }
@@ -32,22 +31,22 @@ class Alg {
         this.stepCount = 0;
         this.isRunning = false;
         this.isFinished = false;
-        this.generations = 300;
-        this.antLimit = 300;
-        this.greedyFactor = 1;
-        this.explorationFactor = 1;
+        this.generations = 200;
+        this.antLimit = 1000;
+        this.exploration = 3;
+        this.greed = 1;
         this.distanceCoeff = 1;
         this.pheromoneIncrease = 1;
-        this.maxPheromoneConcentration = 100;
-        this.bestPathPheromoneReward = 1.;
-        this.pheromoneEvaporationFactor = 0.75;
+        this.maxPheromoneConcentration = 10;
+        this.bestPathPheromoneReward = 2;
+        this.pheromoneEvaporationFactor = 0.76;
         this.points = [];
         this.ants = [];
         this.best = [];
         this.best.pathLength = Number.MAX_SAFE_INTEGER;
         this.pheromones = [];
         this.pheromonesPureValue = [];
-        this.distances = [];
+        this.visibility = [];
         this.dist = function (point1, point2) { return (point1[0] - point2[0]) * (point1[0] - point2[0]) + (point1[1] - point2[1]) * (point1[1] - point2[1]); }
     }
 
@@ -59,7 +58,7 @@ class Alg {
         this.ants = [];
         this.pheromones = [];
         this.pheromonesPureValue = [];
-        this.distances = [];
+        this.visibility = [];
         this.best = [];
         this.best.pathLength = Number.MAX_SAFE_INTEGER;
 
@@ -69,20 +68,31 @@ class Alg {
         if (this.ants.length < this.antLimit) {
             this.spawnAnt();
         }
-        for (let index = 0; index < this.ants.length; ++index) {
-            this.ants[index].move();
-            if (this.ants[index].visited.length >= this.points.length) {
-                if (this.ants[index].pathLength <= this.best.pathLength) {
-                    this.best.clone(this.ants[index].visited);
-                    this.best.pathLength = this.ants[index].pathLength;
+        for (let index = 0, ant; index < this.ants.length; ++index) {
+            ant = this.ants[index];
+            while (ant.visited.length <= this.points.length) {
+                ant.move();
+            }
+            if (ant.pathLength <= this.best.pathLength) {
+                this.best.clone(ant.visited);
+                this.best.pathLength = ant.pathLength;
+            }
+            for (let city = 0; city < ant.visited.length - 1; ++city) {
+                if (this.pheromones[ant.visited[city]][ant.visited[city + 1]] < this.maxPheromoneConcentration) {
+                    this.pheromones[ant.visited[city]][ant.visited[city + 1]] += this.pheromoneIncrease;
                 }
+            }
+            this.ants[index] = null;
+        }
+        for (let index = 0; index < this.ants.length; ++index) {
+            if (this.ants[index] == null) {
                 this.ants.splice(index, 1);
+                index--;
             }
         }
+        this.constructBestPathByPheromone();
         this.updatePheromone();
         this.stepCount++;
-        // this.genCount = 0;
-        // this.isFinished = !(this.isRunning = false);
     }
 
     start() {
@@ -91,10 +101,10 @@ class Alg {
         }
         for (let iCity = 0; iCity < this.points.length; ++iCity) {
             this.pheromones[iCity] = [];
-            this.distances[iCity] = [];
+            this.visibility[iCity] = [];
             for (let jCity = 0; jCity < this.points.length; ++jCity) {
-                this.distances[iCity][jCity] = this.distanceCoeff / Math.pow(this.dist(this.points[iCity], this.points[jCity]), this.greedyFactor);
-                this.pheromones[iCity][jCity] = 0;
+                this.visibility[iCity][jCity] = this.distanceCoeff / Math.pow(this.dist(this.points[iCity], this.points[jCity]), this.exploration);
+                this.pheromones[iCity][jCity] = this.pheromoneIncrease;
             }
         }
         return this.isRunning = true;
@@ -109,22 +119,26 @@ class Alg {
             let probability = [];//[0] - probability, [1] - corresponding city index
             let allowedMoveFactorSum = 0;
             for (let index = 0; index < this.parentAlg.points.length; ++index) {
-                if (index != this.cityIndex && !this.visited.includes(index)) {
-                    probability.push([Math.pow(this.parentAlg.pheromones[this.cityIndex][index], this.parentAlg.explorationFactor) * this.parentAlg.distances[this.cityIndex][index], index]);
-                    allowedMoveFactorSum += probability[probability.length - 1][1];
+                if (!this.visited.includes(index)) {
+                    probability.push([Math.pow(this.parentAlg.pheromones[this.cityIndex][index], this.parentAlg.greed) * this.parentAlg.visibility[this.cityIndex][index], index]);
+                    allowedMoveFactorSum += probability[probability.length - 1][0];
                 }
             }
             for (let index = 0; index < probability.length; ++index) {
                 probability[index][0] /= allowedMoveFactorSum;
             }
+            // console.log(probability);
+            if (probability.length == 0) {
+                probability[0] = [1, this.visited[0]];
+            }
             probability.sort((a, b) => b[0] - a[0]);
             let nextCity = this.parentAlg.pickCityByProbability(probability);
-            this.parentAlg.pheromones[this.cityIndex][nextCity] = Math.min(this.parentAlg.pheromones[this.cityIndex][nextCity] + this.parentAlg.pheromoneIncrease, this.parentAlg.maxPheromoneConcentration);
-            this.pathLength += this.parentAlg.distances[this.cityIndex][nextCity];
+            // this.parentAlg.pheromones[this.cityIndex][nextCity] = Math.min(this.parentAlg.pheromones[this.cityIndex][nextCity] + this.parentAlg.pheromoneIncrease, this.parentAlg.maxPheromoneConcentration);
+            this.pathLength += this.parentAlg.visibility[this.cityIndex][nextCity];
             this.cityIndex = nextCity;
             this.visited.push(this.cityIndex);
         }
-        let ant = { cityIndex: 0, visited: [], parentAlg: this, pathLength: 0, move: moveAnt };
+        let ant = { cityIndex: 0, visited: [0], parentAlg: this, pathLength: 0, move: moveAnt };
         this.ants.push(ant);
     }
 
@@ -145,6 +159,12 @@ class Alg {
         for (let index = 0; index < this.best.length - 1; ++index) {
             this.pheromones[this.best[index]][this.best[index + 1]] += this.bestPathPheromoneReward;
         }
+    }
+    constructBestPathByPheromone() {//идея была сделать еще выделение лучшего пути исключетельно по состоянию феромонов, а не из пройденых самими муравьями, но пока не уверен что так можно
+        // for (let iCity = 0; iCity < this.points.length; ++iCity) {
+        //     for (let jCity = 0; jCity < this.points.length; ++jCity) {
+        //     }
+        // }
     }
 }
 alg = new Alg();
@@ -514,7 +534,7 @@ function initializeParams() {
     addParameter("Desired TPS", updateIntervalS);
     addParameter("Generations Per Tick", algStepS);
     addParameter(null, createCustomCheckbox('bloomCb', false, "Bloom", function () { this.checkbox.checked ? context.disableBloom() : context.enableBloom(); }));
-    addParameter(null, createCustomCheckbox('best', globals.showAllTimeBest, "Show Best Path", function () { globals.showAllTimeBest = !this.checkbox.checked }));
+    addParameter(null, createCustomCheckbox('best', globals.showBest, "Show Best Path", function () { globals.showBest = !this.checkbox.checked }));
     addParameter(null, startButton);
 
     document.getElementById('content').appendChild(parameterDiv);
@@ -575,7 +595,21 @@ function drawPoints() {
 }
 
 function drawLines() {
-    if (globals.showAllTimeBest && alg.best.length > 0) {
+    context.beginPath();
+    context.strokeStyle = globals.colorsExperimental[3];
+    for (let iCity = 0; iCity < alg.points.length; ++iCity) {
+        for (let jCity = 0; jCity < alg.points.length; ++jCity) {
+            if (alg.pheromones[iCity][jCity] >= alg.pheromoneIncrease * .5) {
+                context.lineWidth = 3 * (alg.pheromones[iCity][jCity] / alg.maxPheromoneConcentration);
+                context.moveTo(alg.points[iCity][0], alg.points[iCity][1]);
+                context.lineTo(alg.points[jCity][0], alg.points[jCity][1]);
+                context.stroke();
+            }
+        }
+    }
+    context.closePath();
+
+    if (globals.showBest && alg.best.length > 0) {
         context.strokeStyle = globals.colorsExperimental[2];
         context.lineWidth = 2;
         context.moveTo(alg.points[alg.best[0]][0], alg.points[alg.best[0]][1]);
@@ -586,20 +620,6 @@ function drawLines() {
         }
         context.closePath();
     }
-
-    context.beginPath();
-    context.strokeStyle = globals.colorsExperimental[3];
-    context.lineWidth = 0.2;
-    for (let iCity = 0; iCity < alg.points.length; ++iCity) {
-        for (let jCity = 0; jCity < alg.points.length; ++jCity) {
-            if (alg.pheromones[iCity][jCity] >= 20) {
-                context.moveTo(alg.points[iCity][0], alg.points[iCity][1]);
-                context.lineTo(alg.points[jCity][0], alg.points[jCity][1]);
-                context.stroke();
-            }
-        }
-    }
-    context.closePath();
 
     // for (let index = 0; index <= alg.best.length; ++index) {
 
