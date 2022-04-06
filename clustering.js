@@ -2,6 +2,11 @@ var srcPath = "./resources/clustering/";
 var canvasWidth = 600;
 var canvasHeight = 600;
 var radius = 10;
+var metricsMap = new Map();
+metricsMap.set("Closest Points", distanceBetweenClosestPoints);
+metricsMap.set("Cluster Centers", distanceBetweenClusterCentres);
+metricsMap.set("Wieghed Cluster Centers", distanceBetweenWeighedClusterCentres);
+
 
 
 var computedStyle;
@@ -17,6 +22,8 @@ class Globals {
         this.points = [];
         this.colorsUsedCounter = 0;
         this.depth = 0;
+        this.trees = new Map();
+        this.chosenMetric = distanceBetweenClosestPoints;
     }
 }
 
@@ -65,6 +72,10 @@ Array.prototype.clone = function (array) {
 
 function clusterize(comparator = distanceBetweenClosestPoints) {
     let minDistance, chosen, points = [].clone(globals.points);
+    if (points.length == 0)
+    {
+        return false;
+    }
     for (let counter = 0; counter < globals.points.length - 1; counter++) {
         chosen = [];
         minDistance = -1;
@@ -86,7 +97,8 @@ function clusterize(comparator = distanceBetweenClosestPoints) {
         points.splice(points.indexOf(node.right), 1, node);
         console.log(points);
     }
-    drawTree(points[0]);
+    globals.trees.set(comparator, points[0]);
+    drawTree();
 }
 
 function distanceBetweenClosestPoints(elem1, elem2) {
@@ -102,6 +114,40 @@ function distanceBetweenClosestPoints(elem1, elem2) {
         }
     }
     return minDistance;
+}
+
+function distanceBetweenClusterCentres(elem1, elem2) {
+    let x = 0, y = 0, center1, center2;
+    for (let element of elem1.inwardPoints) {
+        x += element.pos.x;
+        y += element.pos.y;
+    }
+    center1 = { x: x / elem1.inwardPoints.length, y: y / elem1.inwardPoints.length };
+    x = 0; y = 0;
+    for (let element of elem2.inwardPoints) {
+        x += element.pos.x;
+        y += element.pos.y;
+    }
+    center2 = { x: x / elem2.inwardPoints.length, y: y / elem2.inwardPoints.length };
+    let distance = Math.sqrt((center1.x - center2.x) * (center1.x - center2.x) + (center1.y - center2.y) * (center1.y - center2.y));
+    return distance;
+}
+
+function distanceBetweenWeighedClusterCentres(elem1, elem2) {
+    let minDistance = -1, x = 0, y = 0, center1, center2;
+    for (let element of elem1.inwardPoints) {
+        x += element.pos.x;
+        y += element.pos.y;
+    }
+    center1 = { x: x / elem1.inwardPoints.length, y: y / elem1.inwardPoints.length };
+    x = 0; y = 0;
+    for (let element of elem2.inwardPoints) {
+        x += element.pos.x;
+        y += element.pos.y;
+    }
+    center2 = { x: x / elem2.inwardPoints.length, y: y / elem2.inwardPoints.length };
+    let distance = Math.sqrt((center1.x - center2.x) * (center1.x - center2.x) + (center1.y - center2.y) * (center1.y - center2.y))/Math.sqrt(elem1.inwardPoints.length+elem2.inwardPoints.length);
+    return distance;
 }
 
 function colorManager() {
@@ -122,7 +168,14 @@ function treeDepth(tree) {
     }
 }
 
-function drawTree(tree) {
+function drawTree() {
+    if (!globals.trees.has(globals.chosenMetric))
+    {
+        return false;
+    }
+    context.fillStyle = computedStyle.getPropertyValue("--background");
+    context.fillRect(0, 0, canvasWidth, canvasHeight);
+    let tree = globals.trees.get(globals.chosenMetric);
     let counter = 0, levelClusters = [tree], sublevelClusters, maxDepth, chosenCluster;
     while ((counter < globals.depth) && (counter < globals.points.length)) {
         maxDepth = -1;
@@ -148,7 +201,10 @@ function drawTree(tree) {
     for (cluster of levelClusters) {
         let color = colorManager();
         for (point of cluster.inwardPoints) {
-            point.draw(color);
+            if (globals.points.includes(point))
+            {
+                point.draw(color);
+            }
         }
     }
 }
@@ -179,10 +235,17 @@ function placePoint(x, y) {
             return false;
         }
     }
+    context.fillStyle = computedStyle.getPropertyValue("--background");
+    context.fillRect(0, 0, canvasWidth, canvasHeight);
     let point = new Point(x, y);
     globals.points.push(point);
-    document.getElementById("depth").max ++;
-    point.draw();
+    let depthSlider = document.getElementById("depth");
+    depthSlider.max++;
+    depthSlider.updateValue();
+    globals.trees = new Map();
+    for (element of globals.points) {
+        element.draw();
+    }
 }
 
 function deletePoint(x, y) {
@@ -194,9 +257,11 @@ function deletePoint(x, y) {
         context.fillStyle = computedStyle.getPropertyValue("--background");
         context.fillRect(0, 0, canvasWidth, canvasHeight);
         globals.points.splice(globals.points.indexOf(point), 1);
-        document.getElementById("depth").max --;
-        for (element of globals.points)
-        {
+        let depthSlider = document.getElementById("depth");
+        depthSlider.max--;
+        depthSlider.updateValue();
+        globals.trees = new Map();
+        for (element of globals.points) {
             element.draw();
         }
     }
@@ -217,8 +282,8 @@ function initializeCanvas() {
         canvas.addEventListener("mousedown", onCanvasMouseDown);
     }
     context = canvas.getContext("2d");
-    context.enableBloom = function () { context.canvas.style.filter = "url(" + srcPath + "bloom.svg" + "#bloom)" };
     context.disableBloom = function () { context.canvas.style.filter = "url()"; };
+    context.enableBloom = function () { context.canvas.style.filter = "url(" + srcPath + "bloom.svg" + "#bloom)" };
 }
 
 function removeElements() {
@@ -294,7 +359,12 @@ function initializeParams() {
         par.appendChild(inputContainer);
         parameterDiv.appendChild(par);
     }
-    let metrics = createCustomSelectionWheel("metrics", "100%", ["Closest Points", "none"], function () { return false });
+    let avaliableMetrics = [];
+    for (metric of metricsMap)
+    {
+        avaliableMetrics.push(metric[0]);
+    }
+    let metrics = createCustomSelectionWheel("metrics", "100%", avaliableMetrics, onChosenMetricChange);
     addParameter(null, createCustomCheckbox('bloomCb', false, "Bloom", function () { this.checkbox.checked ? context.disableBloom() : context.enableBloom(); }));
     addParameter("Metric:", metrics);
     addParameter("Clusters number", createCustomNumberSelection("depth", "100%", 0, 0, 0, onDepthSliderChange));
@@ -303,21 +373,31 @@ function initializeParams() {
     document.getElementById('content').appendChild(parameterDiv);
 }
 
-function onClearButtonClick()
-{
+function onChosenMetricChange(event, value) {
+    globals.chosenMetric = metricsMap.get(value);
+    drawTree();
+}
+
+function onClearButtonClick() {
     globals.points = [];
+    globals.trees = new Map();
+    let depthSlider = document.getElementById("depth");
+    depthSlider.max = 0;
+    depthSlider.updateValue();
     context.fillStyle = computedStyle.getPropertyValue("--background");
     context.fillRect(0, 0, canvasWidth, canvasHeight);
 }
 
-function onDepthSliderChange(event, number)
-{
-    globals.depth = number - 1;
+function onDepthSliderChange(event, value) {
+    globals.depth = value - 1;
+    drawTree();
 }
 
-function onStartButtonClick(event)
-{
-    clusterize(distanceBetweenClosestPoints);
+function onStartButtonClick(event) {
+    for (metric of metricsMap)
+    {
+        clusterize(metric[1]);
+    }
 }
 
 function paramsFade(params) {
@@ -470,6 +550,7 @@ function registerCustomButton() {
         background-color: ${computedStyle.getPropertyValue("--onBackground")};
         text-align: center;
         // padding: 4px;
+        margin-bottom: 4px;
         height: 3vmin;
         transition: background-color 100ms, color 100ms;
         // border-radius: 0.4vmin;
@@ -735,6 +816,8 @@ function createCustomNumberSelection(id, width, init = 0, min = null, max = null
         if (this.min != null) {
             this.selectedNumber = Math.max(this.selectedNumber, this.min);
         }
+        this.content.innerText = this.selectedNumber;
+        onChange(null, this.selectedNumber);
     }
 
     globals.htmlIDs.unshift(String(id));

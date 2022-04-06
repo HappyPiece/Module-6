@@ -167,40 +167,40 @@ class Alg {
                 this.currentBackTrack.value = globals.id.path;
                 this.currentBackTrack = this.currentBackTrack.parent;
             }
+            this.stepCount++;
             return;
         }
         if (dynamicSteps && this.open.length) {
             algSteps = this.open.length - 1;
         }
-        do {
-            if (this.open.length <= 0) {
-                let notfoundsound = new Audio(srcPath + '404.wav');
-                notfoundsound.play();
-                this.startingPoint.value = globals.id.end;
-                pause();
-                document.getElementById('begin').changeText("Restart");
-                this.isFinished = true;
-                alert("Couldn't find path");
-                return;
+        if (this.open.length <= 0) {
+            let notfoundsound = new Audio(srcPath + '404.wav');
+            notfoundsound.play();
+            this.startingPoint.value = globals.id.end;
+            pause();
+            document.getElementById('begin').changeText("Restart");
+            this.isFinished = true;
+            alert("Couldn't find path");
+            return;
+        }
+        let foundIndex = 0;
+        for (let index = 1; index < this.open.length; ++index) {
+            if (this.open[index].cost < this.open[foundIndex].cost) {
+                foundIndex = index;
             }
-            let foundIndex = 0;
-            for (let index = 1; index < this.open.length; ++index) {
-                if (this.open[index].cost < this.open[foundIndex].cost) {
-                    foundIndex = index;
-                }
-            }
-            let current = this.open[foundIndex];
-            this.open.swapDelete(foundIndex);
-            current.isEvaluated = true;
+        }
+        let current = this.open[foundIndex];
+        this.open.swapDelete(foundIndex);
+        current.isEvaluated = true;
 
-            if (current.pos == this.endingPoint.pos) {
-                this.isFinished = true;
-                return;
-            }
-            this.iterateNeighbors(current);
-            current.value = globals.id.visited;
-            // this.open.sort((a, b) => a.cost - b.cost);
-        } while (this.stepCount++ % algSteps || this.isFinished);
+        if (current.pos == this.endingPoint.pos) {
+            this.isFinished = true;
+            return;
+        }
+        this.iterateNeighbors(current);
+        current.value = globals.id.visited;
+        this.stepCount++;
+        // this.open.sort((a, b) => a.cost - b.cost);
     }
 
 }
@@ -636,6 +636,8 @@ function createCustomNumberSelection(id, width, init = 0, min = null, max = null
         if (this.min != null) {
             this.selectedNumber = Math.max(this.selectedNumber, this.min);
         }
+        this.innerText = this.selectedNumber;
+        onChange(null, this.selectedNumber);
     }
 
     globals.htmlIDs.unshift(String(id));
@@ -711,12 +713,11 @@ function initializeParams() {
     begin.style.marginTop = "5px";
     addParameter("Desired TPS", updateIntervalS);
     addParameter("Grid Size", gridSizeS);
+    addParameter("Steps Per Tick", createCustomSlider(1, 200, 'algsteps', "100%", algSteps, function () { algSteps = this.value }, (x) => algSteps));
     addParameter(null, createCustomCheckbox('bloomCb', false, "Bloom", function () { this.checkbox.checked ? context.disableBloom() : context.enableBloom(); }));
     addParameter(null, createCustomCheckbox('generate', false, "Generate Maze", function () { this.checkbox.checked = true; alg.reset(); grid.clearGrid(); grid.genMaze(); }));
     addParameter(null, createCustomCheckbox('openDist', false, "Faster", function () { if (globals.paused == false) this.checkbox.checked = !this.checkbox.checked; else prioritizeOpenDistance = this.checkbox.checked; }));
     addParameter(null, begin);
-    addParameter(null, test);
-    addParameter("ASDFG:", createCustomNumberSelection("testns", "100%", 1, 0, 10, testNumSelHandler));
 
     document.getElementById('content').appendChild(parameterDiv);
 }
@@ -940,15 +941,16 @@ function draw() {
 }
 
 function update() {
-    alg.step();
+    do {
+        alg.step();
+    } while ((alg.stepCount + 1) % algSteps && !alg.isFinished);
     draw();
 }
 
 function placeCellCluster(x, y) {
-    // if (alg.stepCount && !globals.paused && (grid[x][y].value == globals.id.start || grid[x][y].value == globals.id.end)) {
-    //     alert("stop the algorithm to change the environment");
-    //     return;
-    // }
+    if (alg.isFinished || !globals.paused && (grid[x][y].value == globals.id.start || grid[x][y].value == globals.id.end || globals.selectedTool == globals.id.end || globals.selectedTool == globals.id.start)) {
+        return;
+    }
     if (grid[x][y].value == globals.id.start) {
         alg.startingPoint = null;
     } else if (grid[x][y].value == globals.id.end) {
@@ -1237,8 +1239,6 @@ function start() {
     initialize();
     alg = new Alg();
     updateFunctionIntervalId = setInterval(draw, updateInterval);
-    let search = new Audio(srcPath + 'search.wav');
-    search.play();
 }
 
 function exit() {
