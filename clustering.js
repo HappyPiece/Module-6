@@ -6,6 +6,8 @@ var metricsMap = new Map();
 metricsMap.set("Closest Points", distanceBetweenClosestPoints);
 metricsMap.set("Cluster Centers", distanceBetweenClusterCentres);
 metricsMap.set("Wieghed Cluster Centers", distanceBetweenWeighedClusterCentres);
+metricsMap.set("Average Paired", distanceBetweenPairs);
+metricsMap.set("Average Weighed Paired", distanceBetweenWeighedPairs);
 
 
 
@@ -28,10 +30,12 @@ class Globals {
 }
 
 class Node {
-    constructor(initRight, initLeft) {
+    constructor(initRight, initLeft, initID) {
         this.type = "Node";
         this.right = initRight; this.left = initLeft;
         this.inwardPoints = this.right.inwardPoints.concat(this.left.inwardPoints);
+        this.id = initID;
+        this.traits = null;
     }
 }
 
@@ -42,8 +46,9 @@ class Point {
         this.pos = { x: initX, y: initY };
         this.type = "Point";
         this.inwardPoints = [this];
+        this.id = -1;
     }
-    draw(color = "--primary") {
+    draw(color = "--primary", sectorsNumber = 1, sectorID = 0) {
         context.beginPath();
         if (color == "--primary") {
             context.fillStyle = computedStyle.getPropertyValue("--primary");
@@ -51,8 +56,25 @@ class Point {
         else {
             context.fillStyle = color;
         }
-        context.arc(this.pos.x, this.pos.y, radius, 0, 2 * Math.PI);
+        let sector = (2 * Math.PI)/sectorsNumber;
+        context.arc(this.pos.x, this.pos.y, radius, sector*sectorID, sector*(sectorID+1));
         context.fill();
+    }
+    drawAsCentrode(color = "--primary")
+    {
+        context.beginPath();
+        if (color == "--primary") {
+            context.fillStyle = computedStyle.getPropertyValue("--primary");
+        }
+        else {
+            context.fillStyle = color;
+        }
+        context.moveTo(this.pos.x, this.pos.y - 7);
+        context.lineTo(this.pos.x + 6, this.pos.y + 4);
+        context.lineTo(this.pos.x - 6, this.pos.y + 4,);
+        context.lineTo(this.pos.x, this.pos.y - 7);
+        context.fill();
+        context.closePath();
     }
     erase() {
         context.beginPath();
@@ -71,7 +93,7 @@ Array.prototype.clone = function (array) {
 }
 
 function clusterize(comparator = distanceBetweenClosestPoints) {
-    let minDistance, chosen, points = [].clone(globals.points);
+    let minDistance, chosen, points = [].clone(globals.points), idCounter = 0;
     if (points.length == 0)
     {
         return false;
@@ -79,73 +101,128 @@ function clusterize(comparator = distanceBetweenClosestPoints) {
     for (let counter = 0; counter < globals.points.length - 1; counter++) {
         chosen = [];
         minDistance = -1;
-        for (let element1 of points) {
-            for (let element2 of points) {
-                if (element1 != element2) {
-                    let distance = comparator(element1, element2);
+        // for (let element1 of points) {
+        //     for (let element2 of points) {
+        //         if (element1 != element2) {
+        //             let distance = comparator(element1, element2);
+        //             if (minDistance < 0 || minDistance > distance) {
+        //                 chosen = [];
+        //                 chosen.push(element1);
+        //                 chosen.push(element2);
+        //                 minDistance = distance;
+        //             }
+        //         }
+        //     }
+        // }
+        for (let counter1 = 0; counter1 < points.length; counter1 ++) {
+            for (let counter2 = 0; counter2 < points.length; counter2 ++) {
+                if (counter1 != counter2) {
+                    let distance = comparator(points[counter1], points[counter2]);
                     if (minDistance < 0 || minDistance > distance) {
                         chosen = [];
-                        chosen.push(element1);
-                        chosen.push(element2);
+                        chosen[0] = counter1;
+                        chosen[1] = counter2;
                         minDistance = distance;
                     }
                 }
             }
         }
-        let node = new Node(chosen[0], chosen[1]);
+        // if (comparator == distanceBetweenClosestPoints)
+        // {
+        //     console.log(typeof points[chosen[0]]);
+        //     console.log(points[chosen[0]], points.slice(chosen[0], chosen[0] + 1)[0]);
+        // }
+        let node = new Node(points.slice(chosen[0], chosen[0] + 1)[0], points.slice(chosen[1], chosen[1] + 1)[0], idCounter++);
+        if (comparator == distanceBetweenClosestPoints)
+        {
+            node.traits = ClosestPoints(node.left, node.right);
+        }
         points.splice(points.indexOf(node.left), 1);
         points.splice(points.indexOf(node.right), 1, node);
-        console.log(points);
+        // if (comparator == distanceBetweenClosestPoints)
+        // {
+        //     console.log(points.slice());
+        //     console.log(minDistance);
+        // }
     }
     globals.trees.set(comparator, points[0]);
     drawTree();
 }
 
 function distanceBetweenClosestPoints(elem1, elem2) {
-    let minDistance = -1;
+    let minDistance = -1, distance = 0;
     for (let element1 of elem1.inwardPoints) {
         for (let element2 of elem2.inwardPoints) {
-            if (element1 != element2) {
-                let distance = Math.sqrt((element1.pos.x - element2.pos.x) * (element1.pos.x - element2.pos.x) + (element1.pos.y - element2.pos.y) * (element1.pos.y - element2.pos.y));
-                if ((minDistance < 0) || (minDistance > distance)) {
-                    minDistance = distance;
-                }
+            distance = Math.sqrt((element1.pos.x - element2.pos.x) * (element1.pos.x - element2.pos.x) + (element1.pos.y - element2.pos.y) * (element1.pos.y - element2.pos.y));
+            if ((minDistance < 0) || (minDistance > distance)) {
+                minDistance = distance;
             }
         }
     }
     return minDistance;
 }
 
+function ClosestPoints(elem1, elem2) {
+    let minDistance = -1, distance = 0, chosenPoints = [];
+    for (let element1 of elem1.inwardPoints) {
+        for (let element2 of elem2.inwardPoints) {
+            distance = Math.sqrt((element1.pos.x - element2.pos.x) * (element1.pos.x - element2.pos.x) + (element1.pos.y - element2.pos.y) * (element1.pos.y - element2.pos.y));
+            if ((minDistance < 0) || (minDistance > distance)) {
+                minDistance = distance;
+                chosenPoints = [element1, element2];
+            }
+        }
+    }
+    return chosenPoints;
+}
+
+function distanceBetweenPairs(elem1, elem2) {
+    let medDistance = 0, counter = 0;
+    for (let element1 of elem1.inwardPoints) {
+        for (let element2 of elem2.inwardPoints) {
+            if (element1 != element2) {
+                let distance = Math.sqrt((element1.pos.x - element2.pos.x) * (element1.pos.x - element2.pos.x) + (element1.pos.y - element2.pos.y) * (element1.pos.y - element2.pos.y));
+                medDistance += distance;
+                counter ++;
+            }
+        }
+    }
+    return medDistance /= counter;
+}
+
+function distanceBetweenWeighedPairs(elem1, elem2) {
+    let medDistance = 0, counter = 0;
+    for (let element1 of elem1.inwardPoints) {
+        for (let element2 of elem2.inwardPoints) {
+            if (element1 != element2) {
+                let distance = Math.sqrt((element1.pos.x - element2.pos.x) * (element1.pos.x - element2.pos.x) + (element1.pos.y - element2.pos.y) * (element1.pos.y - element2.pos.y));
+                medDistance += distance;
+                counter ++;
+            }
+        }
+    }
+    return medDistance /= (counter + Math.sqrt(elem1.inwardPoints.length + elem2.inwardPoints.length));
+}
+
+function clusterCenter(cluster)
+{
+    let x = 0, y = 0, center;
+    for (let point of cluster.inwardPoints) {
+        x += point.pos.x;
+        y += point.pos.y;
+    }
+    center = { x: x / cluster.inwardPoints.length, y: y / cluster.inwardPoints.length };
+    return center;
+}
+
 function distanceBetweenClusterCentres(elem1, elem2) {
-    let x = 0, y = 0, center1, center2;
-    for (let element of elem1.inwardPoints) {
-        x += element.pos.x;
-        y += element.pos.y;
-    }
-    center1 = { x: x / elem1.inwardPoints.length, y: y / elem1.inwardPoints.length };
-    x = 0; y = 0;
-    for (let element of elem2.inwardPoints) {
-        x += element.pos.x;
-        y += element.pos.y;
-    }
-    center2 = { x: x / elem2.inwardPoints.length, y: y / elem2.inwardPoints.length };
+    let center1 = clusterCenter(elem1), center2 = clusterCenter(elem2);
     let distance = Math.sqrt((center1.x - center2.x) * (center1.x - center2.x) + (center1.y - center2.y) * (center1.y - center2.y));
     return distance;
 }
 
 function distanceBetweenWeighedClusterCentres(elem1, elem2) {
-    let minDistance = -1, x = 0, y = 0, center1, center2;
-    for (let element of elem1.inwardPoints) {
-        x += element.pos.x;
-        y += element.pos.y;
-    }
-    center1 = { x: x / elem1.inwardPoints.length, y: y / elem1.inwardPoints.length };
-    x = 0; y = 0;
-    for (let element of elem2.inwardPoints) {
-        x += element.pos.x;
-        y += element.pos.y;
-    }
-    center2 = { x: x / elem2.inwardPoints.length, y: y / elem2.inwardPoints.length };
+    let center1 = clusterCenter(elem1), center2 = clusterCenter(elem2);
     let distance = Math.sqrt((center1.x - center2.x) * (center1.x - center2.x) + (center1.y - center2.y) * (center1.y - center2.y))/Math.sqrt(elem1.inwardPoints.length+elem2.inwardPoints.length);
     return distance;
 }
@@ -169,44 +246,116 @@ function treeDepth(tree) {
 }
 
 function drawTree() {
-    if (!globals.trees.has(globals.chosenMetric))
+    if (globals.trees.size != metricsMap.size)
     {
         return false;
     }
+    let levelClusters = new Map();
+    for (metric of metricsMap)
+    {
+        let tree = globals.trees.get(metric[1]);
+        levelClusters.set(metric[1], [tree]);
+        let counter = 0, sublevelClusters, maxDepth, chosenCluster;
+        while ((counter < globals.depth) && (counter < globals.points.length)) {
+            maxID = -1;
+            sublevelClusters = [];
+            for (cluster of levelClusters.get(metric[1])) {
+                if (maxID < cluster.id) {
+                    maxID = cluster.id;
+                    chosenCluster = cluster;
+                }
+            }
+            for (cluster of levelClusters.get(metric[1])) {
+                if (cluster == chosenCluster) {
+                    sublevelClusters.push(cluster.left);
+                    sublevelClusters.push(cluster.right);
+                }
+                else {
+                    sublevelClusters.push(cluster);
+                }
+            }
+            levelClusters.set(metric[1], sublevelClusters);
+            counter++;
+        }
+    }
+    for (level of levelClusters)
+    {
+        for (cluster of level[1])
+        {
+            
+        }
+    }
     context.fillStyle = computedStyle.getPropertyValue("--background");
     context.fillRect(0, 0, canvasWidth, canvasHeight);
-    let tree = globals.trees.get(globals.chosenMetric);
-    let counter = 0, levelClusters = [tree], sublevelClusters, maxDepth, chosenCluster;
-    while ((counter < globals.depth) && (counter < globals.points.length)) {
-        maxDepth = -1;
-        sublevelClusters = [];
-        for (cluster of levelClusters) {
-            if (maxDepth < treeDepth(cluster)) {
-                maxDepth = treeDepth(cluster);
-                chosenCluster = cluster;
+    let pointsParents = new Map();
+    let parents = new Array();
+    for (level of levelClusters)
+    {
+        for (cluster of level[1])
+        {
+            for (point of cluster.inwardPoints) {
+                if (pointsParents.has(point))
+                {
+                    if (!(pointsParents.get(point).includes(level[0])))
+                    {
+                        parents.push(level[0]);
+                        pointsParents.set(point, parents);
+                    }
+                }
+                else
+                {
+                    parents = new Array();
+                    parents.push(level[0]);
+                    pointsParents.set(point, parents);
+                }
             }
         }
-        for (cluster of levelClusters) {
-            if (cluster == chosenCluster) {
-                sublevelClusters.push(cluster.left);
-                sublevelClusters.push(cluster.right);
-            }
-            else {
-                sublevelClusters.push(cluster);
-            }
-        }
-        levelClusters = sublevelClusters;
-        counter++;
     }
-    for (cluster of levelClusters) {
-        let color = colorManager();
-        for (point of cluster.inwardPoints) {
-            if (globals.points.includes(point))
+    if (true)
+    {
+        for (level of levelClusters)
+        {
+            if (level[0] != globals.chosenMetric)
             {
-                point.draw(color);
+                continue;
+            }
+            for (cluster of level[1]) {
+                let color = colorManager();
+                for (point of cluster.inwardPoints) {
+                    if (globals.points.includes(point))
+                    {
+                        point.draw(color);
+                        //point.draw(color, pointsParents.get(point).length, pointsParents.get(point).indexOf(level[0]));
+                    }
+                }
+                if ((cluster.type == "Node")&&((level[0] == distanceBetweenClusterCentres)||(level[0] == distanceBetweenWeighedClusterCentres)))
+                {
+                    let center = clusterCenter(cluster);
+                    let centrode = new Point(center.x, center.y);
+                    centrode.drawAsCentrode(color);
+                }
+                if ((cluster.type == "Node")&&((level[0] == distanceBetweenClosestPoints)))
+                {
+                    drawLineBetweenPoints(cluster.traits[0], cluster.traits[1], color);
+                }
             }
         }
     }
+}
+
+function drawLineBetweenPoints(point1, point2, color = "--primary")
+{
+    context.beginPath();
+    if (globals.trees.size > 0) {
+        context.strokeStyle = color;   
+    }
+    else {
+        context.strokeStyle = computedStyle.getPropertyValue("--primary");
+    }
+    context.moveTo(point1.pos.x, point1.pos.y);
+    context.lineTo(point2.pos.x, point2.pos.y);
+    context.stroke();
+    context.closePath();
 }
 
 function onCanvasMouseDown(event) {
@@ -237,12 +386,12 @@ function placePoint(x, y) {
     }
     context.fillStyle = computedStyle.getPropertyValue("--background");
     context.fillRect(0, 0, canvasWidth, canvasHeight);
+    globals.trees = new Map();
     let point = new Point(x, y);
     globals.points.push(point);
     let depthSlider = document.getElementById("depth");
     depthSlider.max++;
     depthSlider.updateValue();
-    globals.trees = new Map();
     for (element of globals.points) {
         element.draw();
     }
