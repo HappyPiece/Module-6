@@ -20,7 +20,7 @@ class Globals {
         this.toolButtonDown = false;
         this.bloom = false;
         this.showBest = true;
-        this.algStepInterval = 10;
+        this.algStepInterval = 1;
         this.mousepos = [];
     }
 }
@@ -32,7 +32,7 @@ class Alg {
         this.isRunning = false;
         this.isFinished = false;
         this.generations = 200;
-        this.antLimit = 1000;
+        this.antLimit = 100;
         this.exploration = 3;
         this.greed = 1;
         this.distanceCoeff = 1;
@@ -90,7 +90,7 @@ class Alg {
                 index--;
             }
         }
-        this.constructBestPathByPheromone();
+        // this.constructBestPathByPheromone();
         this.updatePheromone();
         this.stepCount++;
     }

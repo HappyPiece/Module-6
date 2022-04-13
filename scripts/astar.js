@@ -33,7 +33,6 @@ class Globals {
         this.htmlIDs = [];
         this.selectedTool = this.tools.start;
         this.selectedToolElement = null;
-        this.eraseClickTimestamp = null;
         this.toolButtonDown = false;
         this.toolSize = 1;
         this.shiftKeyDown = false;
@@ -59,6 +58,7 @@ class Cell {
 class Alg {
     constructor() {
         this.open = [];
+        this.considered = [];
         this.stepCount = 0;
         this.startingPoint = null;
         this.endingPoint = null;
@@ -70,6 +70,7 @@ class Alg {
 
     reset() {
         this.open = [];
+        this.considered = [];
         this.stepCount = 0;
         if (this.startingPoint) {
             this.startingPoint.value = globals.id.empty;
@@ -170,12 +171,10 @@ class Alg {
             this.stepCount++;
             return;
         }
-        if (dynamicSteps && this.open.length) {
-            algSteps = this.open.length - 1;
-        }
+        // if (dynamicSteps && this.open.length) {
+        //     algSteps = this.open.length - 1;
+        // }
         if (this.open.length <= 0) {
-            let notfoundsound = new Audio(srcPath + '404.wav');
-            notfoundsound.play();
             this.startingPoint.value = globals.id.end;
             pause();
             document.getElementById('begin').changeText("Restart");
@@ -192,7 +191,7 @@ class Alg {
         let current = this.open[foundIndex];
         this.open.swapDelete(foundIndex);
         current.isEvaluated = true;
-
+        this.considered.push(current);
         if (current.pos == this.endingPoint.pos) {
             this.isFinished = true;
             return;
@@ -709,7 +708,6 @@ function initializeParams() {
     updateIntervalS.style.minWidth = "175px";
     let gridSizeS = createCustomSlider(1, 5, 'gridResize', "100%", Math.round(gridSize / 25), function () { resizeGrid(this.value < 5 ? Math.round(this.value * 25) : 600); }, (x) => gridSize);
     let begin = createCustomButton('begin', "Begin Pathfinding", "100%", onStartButton);
-    let test = createCustomSelectionWheel("seltest", "100%", ["1", "2", "penis"], testSelHandler);
     begin.style.marginTop = "5px";
     addParameter("Desired TPS", updateIntervalS);
     addParameter("Grid Size", gridSizeS);
@@ -720,14 +718,6 @@ function initializeParams() {
     addParameter(null, begin);
 
     document.getElementById('content').appendChild(parameterDiv);
-}
-
-function testSelHandler(event, option) {
-    return 0;
-}
-function testNumSelHandler(event, number) {
-    // console.log(number);
-    return 0;
 }
 
 function initializeContent() {
@@ -937,10 +927,15 @@ function draw() {
         }
     }
 
+    for (let cell of alg.considered) {
+        fill(cell.pos[0] * cellWidth, cell.pos[1] * cellHeight, cellWidth, cellHeight, globals.colorsExperimental[globals.id.path]);
+    }
+
     context.putImageData(drawImage, 0, 0);//Swap ДБ
 }
 
 function update() {
+    alg.considered = [];
     do {
         alg.step();
     } while ((alg.stepCount + 1) % algSteps && !alg.isFinished);
