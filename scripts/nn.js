@@ -300,9 +300,17 @@ function pixilated(el)
 let vector = [];
 let net = null;
 
-
-
 function mostLikely(input, net) {
+  let notEmptyCheck = false
+  for (let i = 0; i < 25; i++)
+    if (input[i] == 1)
+    {
+      notEmptyCheck = true;
+      break;
+    }
+  
+  if (notEmptyCheck)
+  {
     const output = net.run(input);
     let maxProp = null;
     let maxValue = -1;
@@ -315,6 +323,9 @@ function mostLikely(input, net) {
         }
     });
     return maxProp;
+  }
+  else
+    return "NaN";
 }
 
 function basicOptions() {
