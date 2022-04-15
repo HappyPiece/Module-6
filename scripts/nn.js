@@ -1,23 +1,122 @@
 
 /////////////////////
+var d;
 
 var computedStyle = getComputedStyle(document.body);
+function initializeParams() {
+  let parameterDiv = document.createElement('div');
+  parameterDiv.id = "parameters";
+  parameterDiv.style.display = "none";
+  parameterDiv.style.marginLeft = "3%";
+  parameterDiv.style.position = "fixed";
+  parameterDiv.style.opacity = "0";
+  parameterDiv.style.minWidth = "20vmin";
+  function addParameter(name, inputContainer) {
+      let par = document.createElement("div");
+      // par.style.display = "block";
+      if (name) {
+          let text = document.createElement('p');
+          text.innerText = name + " ";
+          text.style.display = "flex";
+          text.style.flexDirection = "column";
+          par.appendChild(text);
+      }
+      par.appendChild(inputContainer);
+      parameterDiv.appendChild(par);
+  }
+  let clear = createCustomButton('clear', "Clear Canvas", "20vmin", onClear);
+  let identify = createCustomButton('identify', "Identify Number", "20vmin", onIdentify);
+  let numberDisplay = createCustomButton('numberDisplay', "", "20vmin", function() {return false});
+  numberDisplay.style.minHeight = "20vmin";
+  numberDisplay.style.fontSize = "10vmin";
+  numberDisplay.style.lineHeight = "20vmin";
+  //clear.style.marginTop = "5px";
+  addParameter(null, clear);
+  addParameter(null, identify);
+  addParameter(null, numberDisplay);
+  document.getElementById('content').appendChild(parameterDiv);
+}
+
+function paramsFade(params) {
+  let opacity = Number(params.style.opacity);
+  if (params.style.display == "none") {
+      params.style.display = "inline-block";
+  }
+  params.style.opacity = String(opacity += params.fadeStep);
+  if (opacity <= 0. || opacity >= 1.) {
+      params.style.opacity = opacity = Math.round(opacity);
+      params.style.display = opacity > 0 ? "inline-block" : "none";
+      clearInterval(params.updateIntervalId);
+      params.updateIntervalId = null;
+  }
+}
+
 function initializeCanvas()
 {
     let canvas = document.getElementById("canv");
     let content = document.getElementById('content');
     if (canvas == null)
-	{
+	  {
         canvas = document.createElement('canvas');
         canvas.id = "canv";
         canvas.width = 500;
         canvas.height = 500;
         canvas.style.display = "inline";
         canvas.style.border = "0.2vmin solid" + computedStyle.getPropertyValue("--primary");        
-        content.appendChild(canvas); 
+        content.appendChild(canvas);
+        content.style.display = "block";
+        content.style.textAlign = "center";
     } 
+    d = new pixilated(document.getElementById('canv'));
 }
+
+function registerCustomButton() {
+  let style = `
+  .button{
+      display: inline-block;
+      border: solid ${computedStyle.getPropertyValue("--primary")} 1px;
+      background-color: ${computedStyle.getPropertyValue("--onBackground")};
+      text-align: center;
+      // padding: 4px;
+      height: 3vmin;
+      transition: background-color 100ms, color 100ms;
+      // border-radius: 0.4vmin;
+      margin-bottom: 4px;
+  }
+  .button:hover{
+      background-color: ${computedStyle.getPropertyValue("--primary")};
+      color: ${computedStyle.getPropertyValue("--onBackground")};
+  }
+`;
+  let styleSheet = document.createElement('style');
+  styleSheet.innerText = style.replace(/\n/g, " ").replace(/\s\s/g, "");
+  styleSheet.id = "button-styles";
+  document.head.appendChild(styleSheet);
+}
+
+function createCustomButton(id, text, cssWidth = null, onClick = function () { return true; }) {
+  let button = document.createElement("div");
+  // let bText = document.createElement("span");
+  button.id = String(id);
+  button.className = "button";
+  button.innerText = String(text);
+  if (cssWidth) {
+      button.style.width = String(cssWidth);
+  }
+  // bText.innerText = String(text);
+  button.changeText = function (newText) {
+      this.innerText = String(newText);
+  }
+  button.addEventListener("mousedown", onClick);
+  // button.appendChild(bText);
+  return button;
+}
+
+
+
 initializeCanvas();
+registerCustomButton();
+initializeParams();
 function pixilated(el)
 {
 	// initializeCanvas();
@@ -35,8 +134,8 @@ function pixilated(el)
 	const cellSize = canvSize / pixel;
 	this.drawCell = function(x, y, w, h)
 	{
-		ctx.fillStyle = 'blue';
-		ctx.strokeStyle = 'blue';
+		ctx.fillStyle = computedStyle.getPropertyValue("--error");
+		ctx.strokeStyle = computedStyle.getPropertyValue("--error");
 		ctx.lineJoin = 'miter';
 		ctx.lineWidth = 1;
 		ctx.rect(x, y, w, h);
@@ -101,8 +200,9 @@ function pixilated(el)
 		ctx.beginPath();
 		if (e.button == 0)
 		{
-			ctx.fillStyle = 'red';
-			ctx.strokeStyle = 'red';
+
+			ctx.fillStyle = computedStyle.getPropertyValue("--primary");
+			ctx.strokeStyle = computedStyle.getPropertyValue("--primary");
 			ctx.lineWidth = pixel;
 
 			//ctx.lineTo(e.offsetX, e.offsetY);
@@ -200,7 +300,6 @@ function pixilated(el)
 let vector = [];
 let net = null;
 
-const d = new pixilated(document.getElementById('canv'));
 
 
 function mostLikely(input, net) {
@@ -873,6 +972,18 @@ class NeuralNetwork {
         }
         return data;
     }
+}
+
+function onIdentify()
+{
+  let result = mostLikely(d.calculate(), net);
+  document.getElementById('numberDisplay').changeText(result);
+}
+
+function onClear()
+{
+  d.clear();
+  document.getElementById('numberDisplay').changeText("");
 }
 
 let train_data = [
@@ -167662,7 +167773,22 @@ let train_data = [
     }
   ];
 
-document.addEventListener('keypress', function(e) {
+net = new NeuralNetwork();
+net.train(train_data, {log: true});
+
+document.addEventListener('keydown', function(e) {
+  console.log(e.key);
+  if (e.key == 'Tab')
+  {
+    e.preventDefault();
+    let params = document.getElementById("parameters");
+    if (params.updateIntervalId != null) {
+        return true;
+    }
+    params.fadeStep = params.style.display == "none" ? 0.1 : -0.1;
+
+    params.updateIntervalId = setInterval(paramsFade, 40, params);
+  }
 	if (e.key.toLowerCase() == 'c')
 	{
 		d.clear();
@@ -167753,6 +167879,6 @@ document.addEventListener('keypress', function(e) {
 		net = new NeuralNetwork();
 		net.train(train_data, {log: true});
         const result = mostLikely(d.calculate(), net);
-		alert(result);
+		document.getElementById('identify').changeText(result);
 	}
 });

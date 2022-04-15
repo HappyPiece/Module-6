@@ -278,13 +278,6 @@ function drawTree() {
             counter++;
         }
     }
-    for (level of levelClusters)
-    {
-        for (cluster of level[1])
-        {
-            
-        }
-    }
     context.fillStyle = computedStyle.getPropertyValue("--background");
     context.fillRect(0, 0, canvasWidth, canvasHeight);
     let pointsParents = new Map();
