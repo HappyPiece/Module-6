@@ -81,7 +81,11 @@ function getImage() {
                 document.write("<script src='./scripts/genetic.js'></script>");
                 break;
             case 3:
-                document.write("<script src='./scripts/ants1.js'></script>");
+                if (window.devicePixelRatio < 2.2) {
+                    document.write("<script src='./scripts/ants1.js'></script>");
+                } else {
+                    document.write("<script src='./scripts/ants.js'></script>");
+                }
                 break;
             case 4:
                 image.src = "./resources/gachimuchi/rambo.gif";
