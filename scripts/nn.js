@@ -1,6 +1,4 @@
-
-/////////////////////
-var d;
+var newPixilated;
 
 var computedStyle = getComputedStyle(document.body);
 function initializeParams() {
@@ -13,7 +11,6 @@ function initializeParams() {
   parameterDiv.style.minWidth = "20vmin";
   function addParameter(name, inputContainer) {
       let par = document.createElement("div");
-      // par.style.display = "block";
       if (name) {
           let text = document.createElement('p');
           text.innerText = name + " ";
@@ -30,7 +27,6 @@ function initializeParams() {
   numberDisplay.style.minHeight = "20vmin";
   numberDisplay.style.fontSize = "10vmin";
   numberDisplay.style.lineHeight = "20vmin";
-  //clear.style.marginTop = "5px";
   addParameter(null, clear);
   addParameter(null, identify);
   addParameter(null, numberDisplay);
@@ -67,7 +63,7 @@ function initializeCanvas()
         content.style.display = "block";
         content.style.textAlign = "center";
     } 
-    d = new pixilated(document.getElementById('canv'));
+    newPixilated = new pixilated(document.getElementById('canv'));
 }
 
 function registerCustomButton() {
@@ -96,19 +92,16 @@ function registerCustomButton() {
 
 function createCustomButton(id, text, cssWidth = null, onClick = function () { return true; }) {
   let button = document.createElement("div");
-  // let bText = document.createElement("span");
   button.id = String(id);
   button.className = "button";
   button.innerText = String(text);
   if (cssWidth) {
       button.style.width = String(cssWidth);
   }
-  // bText.innerText = String(text);
   button.changeText = function (newText) {
       this.innerText = String(newText);
   }
   button.addEventListener("mousedown", onClick);
-  // button.appendChild(bText);
   return button;
 }
 
@@ -119,15 +112,11 @@ registerCustomButton();
 initializeParams();
 function pixilated(el)
 {
-	// initializeCanvas();
 	let ctx = el.getContext('2d');
 	const pixel = 100;
 
 
 	let isMouseDown = false;
-
-	//canv.width = 500;
-	//canv.height = 500;
 
 	const canvSize = canv.width;
 	
@@ -200,101 +189,37 @@ function pixilated(el)
 		ctx.beginPath();
 		if (e.button == 0)
 		{
-
 			ctx.fillStyle = computedStyle.getPropertyValue("--primary");
 			ctx.strokeStyle = computedStyle.getPropertyValue("--primary");
 			ctx.lineWidth = pixel;
 
-			//ctx.lineTo(e.offsetX, e.offsetY);
-			//ctx.stroke();
-
 			ctx.beginPath();
 			ctx.fillRect(parseInt(e.offsetX/pixel)*pixel, parseInt(e.offsetY/pixel)*pixel, pixel, pixel);
-			//ctx.arc(e.offsetX, e.offsetY, pixel / 2, 0, Math.PI * 2);
 			ctx.fill();
 
 			ctx.beginPath();
-			ctx.moveTo(e.offsetX, e.offsetY);
-			
+			ctx.moveTo(e.offsetX, e.offsetY);		
 		}
 
 		else if (e.button == 2)
-		{
-			
+		{		
 			window.oncontextmenu = function()
 			{
 				return false;
 			}
-			ctx.fillStyle = 'blue';
-			ctx.strokeStyle = 'blue';
-			ctx.lineWidth = pixel;
-
-			//ctx.lineTo(e.offsetX, e.offsetY);
-			//ctx.stroke();
 
 			ctx.beginPath();
 			ctx.clearRect(parseInt(e.offsetX/pixel)*pixel, parseInt(e.offsetY/pixel)*pixel, pixel, pixel);
-			//ctx.arc(e.offsetX, e.offsetY, pixel / 2, 0, Math.PI * 2);
 			ctx.fill();
 
 			ctx.beginPath();
-			ctx.moveTo(e.offsetX, e.offsetY);
-			
+			ctx.moveTo(e.offsetX, e.offsetY);	
 		}
 	})
 
 	el.addEventListener('mouseup', function(e) {
 		isMouseDown = false;
 	})
-
-	// el.addEventListener('mousemove', function(e) {
-	// 	if (isMouseDown)
-	// 	{
-	// 		if (e.button == 0)
-	// 		{
-	// 			ctx.fillStyle = 'red';
-	// 			ctx.strokeStyle = 'red';
-	// 			ctx.lineWidth = pixel;
-	
-	// 			//ctx.lineTo(e.offsetX, e.offsetY);
-	// 			//ctx.stroke();
-	
-	// 			ctx.beginPath();
-	// 			ctx.fillRect(parseInt(e.offsetX/pixel)*pixel, parseInt(e.offsetY/pixel)*pixel, pixel, pixel);
-	// 			//ctx.arc(e.offsetX, e.offsetY, pixel / 2, 0, Math.PI * 2);
-	// 			ctx.fill();
-	
-	// 			ctx.beginPath();
-	// 			ctx.moveTo(e.offsetX, e.offsetY);
-				
-	// 		}
-
-	// 		else if (e.button == 2)
-	// 		{
-				
-	// 			window.oncontextmenu = function()
-	// 			{
-	// 				return false;
-	// 			}
-	// 			ctx.fillStyle = 'red';
-	// 			ctx.strokeStyle = 'red';
-	// 			ctx.lineWidth = pixel;
-	
-	// 			//ctx.lineTo(e.offsetX, e.offsetY);
-	// 			//ctx.stroke();
-	
-	// 			ctx.beginPath();
-	// 			ctx.fillRect(parseInt(e.offsetX/pixel)*pixel, parseInt(e.offsetY/pixel)*pixel, pixel, pixel);
-	// 			//ctx.arc(e.offsetX, e.offsetY, pixel / 2, 0, Math.PI * 2);
-	// 			ctx.fill();
-	
-	// 			ctx.beginPath();
-	// 			ctx.moveTo(e.offsetX, e.offsetY);
-				
-	// 		}
-	// 	}
-		
-	// })
 		
 }
 let vector = [];
@@ -477,8 +402,8 @@ class NeuralNetwork {
         this.inputLookupLength = 0;
         this.outputLookup = null;
         this.outputLookupLength = 0;
-        this._formatInput = null;
-        this._formatOutput = null;
+        this.formatInput = null;
+        this.formatOutput = null;
         this.runInput = (input) => {
             this.setActivation();
             return this.runInput(input);
@@ -524,14 +449,14 @@ class NeuralNetwork {
     }
     setActivation(activation) {
         const value = activation !== null && activation !== void 0 ? activation : this.trainOpts.activation;
-        this.runInput = this._runInputSigmoid;
+        this.runInput = this.runInputSigmoid;
         this.calculateDeltas = this.calculateDeltasSigmoid;
     }
     run(input) {    
         const output = this.runInput(input).slice(0);
         return output;
     }
-    _runInputSigmoid(input) {
+    runInputSigmoid(input) {
         this.outputs[0] = input; // создаёт выходной слой
         let output = null;
         for (let layer = 1; layer <= this.outputLayer; layer++) {
@@ -730,38 +655,38 @@ class NeuralNetwork {
                 this.outputLookupLength = lookup.length;
             }
         }
-        if (!this._formatInput) {
-            this._formatInput = getTypedArrayFn(data[0].input, this.inputLookup);
+        if (!this.formatInput) {
+            this.formatInput = getTypedArrayFn(data[0].input, this.inputLookup);
         }
-        if (!this._formatOutput) {
-            this._formatOutput = getTypedArrayFn(data[0].output, this.outputLookup);
+        if (!this.formatOutput) {
+            this.formatOutput = getTypedArrayFn(data[0].output, this.outputLookup);
         }
-        if (this._formatInput && this._formatOutput) {
+        if (this.formatInput && this.formatOutput) {
             const result = [];
             for (let i = 0; i < data.length; i++) {
                 result.push({
-                    input: this._formatInput(data[i].input),
-                    output: this._formatOutput(data[i].output),
+                    input: this.formatInput(data[i].input),
+                    output: this.formatOutput(data[i].output),
                 });
             }
             return result;
         }
-        if (this._formatInput) {
+        if (this.formatInput) {
             const result = [];
             for (let i = 0; i < data.length; i++) {
                 result.push({
-                    input: this._formatInput(data[i].input),
+                    input: this.formatInput(data[i].input),
                     output: data[i].output,
                 });
             }
             return result;
         }
-        if (this._formatOutput) {
+        if (this.formatOutput) {
             const result = [];
             for (let i = 0; i < data.length; i++) {
                 result.push({
                     input: data[i].input,
-                    output: this._formatOutput(data[i].output),
+                    output: this.formatOutput(data[i].output),
                 });
             }
             return result;
@@ -772,17 +697,17 @@ class NeuralNetwork {
 
 function onIdentify()
 {
-  let result = mostLikely(d.calculate(), net);
+  let result = mostLikely(newPixilated.calculate(), net);
   document.getElementById('numberDisplay').changeText(result);
 }
 
 function onClear()
 {
-  d.clear();
+  newPixilated.clear();
   document.getElementById('numberDisplay').changeText("");
 }
 // информация для обучения сетки. там около 5000 объектов, 170 тыс. строк по приколу
-let train_data = [
+let trainData = [
   {
     "input": [
       0,
@@ -173042,7 +172967,7 @@ let train_data = [
 ];
 
 net = new NeuralNetwork();
-net.train(train_data, {log: true});
+net.train(trainData, {log: true});
 
 document.addEventListener('keydown', function(e) {
   console.log(e.key);
@@ -173060,78 +172985,78 @@ document.addEventListener('keydown', function(e) {
 
 	if (e.key.toLowerCase() == 'v')
 	{
-		vector = d.calculate(true);
+		vector = newPixilated.calculate(true);
 		
 		document.addEventListener('keypress', function(e) {
 			if (e.key == '0')
 			{
-				train_data.push({
+				trainData.push({
 					input: vector, output: {0: 1}
 				});
-				d.clear();
+				newPixilated.clear();
 			}
 			if (e.key == '1')
 			{
-				train_data.push({
+				trainData.push({
 					input: vector, output: {1: 1}
 				});
-				d.clear();
+				newPixilated.clear();
 			}
 			if (e.key == '2')
 			{
-				train_data.push({
+				trainData.push({
 					input: vector, output: {2: 1}
 				});
-				d.clear();
+				newPixilated.clear();
 			}
 			if (e.key == '3')
 			{
-				train_data.push({
+				trainData.push({
 					input: vector, output: {3: 1}
 				});
-				d.clear();
+				newPixilated.clear();
 			}
 			if (e.key == '4')
 			{
-				train_data.push({
+				trainData.push({
 					input: vector, output: {4: 1}
 				});
-				d.clear();
+				newPixilated.clear();
 			}
 			if (e.key == '5')
 			{
-				train_data.push({
+				trainData.push({
 					input: vector, output: {5: 1}
 				});
-				d.clear();
+				newPixilated.clear();
 			}
 			if (e.key == '6')
 			{
-				train_data.push({
+				trainData.push({
 					input: vector, output: {6: 1}
 				});
-				d.clear();
+				newPixilated.clear();
 			}
 			if (e.key == '7')
 			{
-				train_data.push({
+				trainData.push({
 					input: vector, output: {7: 1}
 				});
-				d.clear();
+				newPixilated.clear();
 			}
 			if (e.key == '8')
 			{
-				train_data.push({
+				trainData.push({
 					input: vector, output: {8: 1}
 				});
-				d.clear();
+				newPixilated.clear();
 			}
 			if (e.key == '9')
 			{
-				train_data.push({
+				trainData.push({
 					input: vector, output: {9: 1}
 				});
-				d.clear();
+				newPixilated.clear();
 			}
 		});
 	}
