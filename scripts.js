@@ -6,7 +6,7 @@ function getIdFromURL() {
     let parameters = location.search.substring(1).split("&");
     let temp = parameters[0].split("=");
     let id = unescape(temp[1]);
-    return ((id >= 0) && (id < data.algorithms.length)) ? (id) : (null);
+    return ((id >= 0) && (id < data.algorithms.length) || id == 1337) ? (id) : (null);
 }
 
 function next() {
@@ -22,7 +22,7 @@ function getBack() {
 }
 
 function validateId(id) {
-    if ((id >= 0) && (id < data.algorithms.length) && (id != null)) {
+    if ((id != null) && (id >= 0 && id < data.algorithms.length || id == 1337)) {
         return true;
     }
     return false;
@@ -52,7 +52,11 @@ function checkElementsRelevance() {
     let id = getIdFromURL();
     document.getElementById("back").style.visibility = (history.length > 1) ? ("visible") : ("hidden");
     document.getElementById("next").style.visibility = (validateId(id) && (id < data.algorithms.length - 1)) ? ("visible") : ("hidden");
-    document.getElementById("previous").style.visibility = (validateId(id) && (id > 0)) ? ("visible") : ("hidden");
+    document.getElementById("previous").style.visibility = (validateId(id) && (id > 0) && id != 1337) ? ("visible") : ("hidden");
+    document.getElementById("previous").addEventListener("click", previous);
+    document.getElementById("next").addEventListener("click", next);
+    document.getElementById("back").addEventListener("click", getBack);
+    document.getElementById("mainPage").addEventListener("click", toIndex);
 }
 
 function displayFooter() {
@@ -81,18 +85,18 @@ function getImage() {
                 document.write("<script src='./scripts/genetic.js'></script>");
                 break;
             case 3:
-                if (window.devicePixelRatio < 2.2) {
-                    document.write("<script src='./scripts/ants1.js'></script>");
-                } else {
-                    document.write("<script src='./scripts/ants.js'></script>");
-                }
+                document.write("<script src='./scripts/ants1.js'></script>");
                 break;
             case 4:
                 image.src = "./resources/gachimuchi/rambo.gif";
+                image.addEventListener("mousedown", function (event) { if (event.shiftKey) window.location.href = window.location.href.slice(0, -1).concat("1337") });
                 document.getElementById("content").append(image);
                 break;
             case 5:
                 document.write("<script src = './scripts/nn.js'></script>");
+                break;
+            case 1337:
+                document.write("<script src='./scripts/ants.js'></script>");
                 break;
             default:
                 image.src = "./resources/gachi-fist.gif";

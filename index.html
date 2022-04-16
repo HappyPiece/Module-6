@@ -1,33 +1,40 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <meta charset="UTF-8">
-        <link href="styles.css" rel="stylesheet" type="text/css">
-        <script src="scripts.js"></script>
-        <title>Module 6</title>
-    </head>
-    <body>
-        <div class="indexContent">
-            <div style="display: flex; align-content: center; justify-content: end;"><h1 style="margin-right: 2%;">Module 6</h1></div>
-            <div id="tableOfContents">
-                <h2 style="margin-left: 1%;">Algorithms:</h2>
-                <ol>
-                    <script> 
-                        for (var counter = 0; counter < data.algorithms.length; counter ++)
-                        {
-                            let link = document.createElement("a");
-                            link.href = 'algorithm.html?algorithmId=' + counter;
-                            link.innerHTML = data.algorithms[counter];
-                            let li = document.createElement("li");
-                            li.append(link);
-                            document.getElementById("tableOfContents").append(li);
-                        }
-                    </script>  
-                </ol>
-            </div>
+
+<head>
+    <meta charset="UTF-8">
+    <link href="styles.css" rel="stylesheet" type="text/css">
+    <script src="scripts.js"></script>
+    <title>Module 6</title>
+</head>
+
+<body>
+    <div class="indexContent">
+        <div style="display: flex; align-content: center; justify-content: end;">
+            <h1 style="margin-right: 2%;">Module 6</h1>
         </div>
-        <script>
-            displayFooter();
-        </script>
-    </body>
+        <div id="tableOfContents">
+            <h2 style="margin-left: 1%;">Algorithms:</h2>
+            <ol>
+                <script>
+                    for (var counter = 0; counter < data.algorithms.length; counter++) {
+                        let link = document.createElement("a");
+                        link.href = 'algorithm.html?algorithmId=' + counter;
+                        link.innerHTML = data.algorithms[counter];
+                        let li = document.createElement("li");
+                        li.append(link);
+                        document.getElementById("tableOfContents").append(li);
+                    }
+                </script>
+            </ol>
+        </div>
+        <div id="controlHelper">
+            <span>Press TAB on each page to access the corresponding options menu</span>
+        </div>
+    </div>
+    <script>
+        displayFooter();
+    </script>
+</body>
+
 </html>
