@@ -593,8 +593,8 @@ function initializeParams() {
         parameterDiv.appendChild(par);
     }
     let updateIntervalS = createCustomSlider(1, 100, 'fpsSlider', "100%", Math.round(1000 / updateInterval), function () { changeUpdateInterval(Math.round(1000 / updateIntervalS.value)); }, (x) => Math.round(1000 / updateInterval));
-    let algStepS = createCustomSlider(1, 6, 'algsteps', "100%", Math.round(Math.log10(globals.algStepInterval) + 1), function () { globals.algStepInterval = Math.pow(10, algStepS.value - 1); }, (x) => Math.pow(10, algStepS.value - 1));
-    let generationsS = createCustomSlider(1, 25, 'generations', "100%", Math.round(alg.generations / 20), (x) => alg.generations = generationsS.value * 20, (x) => alg.generations);
+    let algStepS = createCustomSlider(1, 4, 'algsteps', "100%", Math.round(Math.log10(globals.algStepInterval) + 1), function () { globals.algStepInterval = Math.pow(10, algStepS.value - 1); }, (x) => Math.pow(10, algStepS.value - 1));
+    let generationsS = createCustomSlider(1, 50, 'generations', "100%", Math.round(alg.generations / 20), (x) => alg.generations = generationsS.value * 20, (x) => alg.generations);
     let startButton = createCustomButton('start', "Start", "100%", onStartButton);
     startButton.style.marginTop = "5px";
     // updateIntervalS.style.minWidth = "175px";
@@ -603,7 +603,6 @@ function initializeParams() {
     addParameter("Generaitons Overall", generationsS);
     addParameter(null, createCustomCheckbox('bloomCb', false, "Bloom", function () { this.checkbox.checked ? context.disableBloom() : context.enableBloom(); }));
     addParameter(null, createCustomCheckbox('atb', globals.showAllTimeBest, "Show All Time Best", function () { globals.showAllTimeBest = !this.checkbox.checked; }));
-    addParameter(null, createCustomCheckbox('elitism', alg.elitism, "Allow Elitism", function () { alg.elitism = !this.checkbox.checked }));
     addParameter(null, createCustomCheckbox('mutchance', alg.dynamicMutation, "Dynamic Mutation Chance", function () { alg.dynamicMutation = !this.checkbox.checked }));
     addParameter(null, startButton);
 
@@ -750,7 +749,7 @@ function onStartButton() {
 }
 
 function onKeyDown(event) {
-    if (/Space/.test(event.code) || event.which == 32) {
+    if (event.which == 32 || event.code == "Space") {//половина браузеров нЕ пОдДеРжИвАеТ хотя бы один из способов распознания нажатий, потому все сразу
         // onPauseButtonClick();
         if (alg.isFinished) {
             event.preventDefault();
@@ -762,7 +761,7 @@ function onKeyDown(event) {
             pause();
         }
         event.preventDefault();
-    } else if (/Tab/.test(event.code) || event.which == 9) {
+    } else if (event.which == 9 || event.code == "Tab") {
         event.preventDefault();
         let params = document.getElementById("parameters");
         if (params.updateIntervalId != null) {

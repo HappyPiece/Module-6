@@ -1,8 +1,8 @@
 var srcPath = "./resources/astar/";
 var canvasWidth = 600;
 var canvasHeight = 600;
-var controlSize = "80px";
-var controlSizeShrunk = "70px";
+var controlSize = "75px";
+var controlSizeShrunk = "65px";
 
 var gridSize = 75;
 var grid = [];
@@ -12,9 +12,9 @@ var updateInterval = 125;
 var updateFunctionIntervalId;
 var prioritizeOpenDistance = false;
 var computedStyle;
-var context;//2d context
-var drawImage;//буфер рендера
-var drawBuffer;//сама data буффера - height*with*4 
+var context;    //2d context
+var drawImage;  //буфер рендера
+var drawBuffer; //сама data буффера - height*with*4 
 var sliderBackgroundColor = "#242424";
 var sliderThumbColor = "#04AA6D";
 var sliderThumbSize = 25;
@@ -90,7 +90,7 @@ class Alg {
         //но алгоритм становится медленнее и в лабиринтах это мало влияет, так как увеличивает область поиска, требуя при этом больше банальных вычислений
         //Вообще баланс между областью поиска и скоростью достижения цели - краеугольный камень алгоритма
 
-        //для простоты и скорости убрать усреднение с alt
+        //для простоты убрать усреднение с alt
         let xdiff = Math.abs(x - x1), ydiff = Math.abs(y - y1);
         let alt = xdiff * this.distCells + ydiff * this.distCells;
         if (xdiff < ydiff)
@@ -1110,16 +1110,23 @@ function plotLineHigh(x0, y0, x1, y1) {
 }
 
 function onKeyDown(event) {
-    globals.shiftKeyDown = (/Shift/.test(event.code));
+    globals.shiftKeyDown = (/Shift/.test(event.code) | event.which == 16);
     if (/Digit[1234]/.test(event.code) || 48 < event.which && event.which < 53) {
-        selectTool(Number(event.which - 49));
+        if (event.which) {
+            selectTool(Number(event.which - 49));
+        }
+        else {
+            selectTool(Number(event.code[5]) - 1);
+        }
     }
     else if (/Space/.test(event.code) || event.which == 32) {
         // onPauseButtonClick();
         if (alg.isFinished) {
             event.preventDefault();
+            resume();
             return;
         } else if (globals.paused) {
+            alg.considered = [];
             alg.step();
         }
         else {

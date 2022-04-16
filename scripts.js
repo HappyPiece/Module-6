@@ -73,7 +73,7 @@ function getImage() {
                 document.write("<script src='./scripts/astar.js'></script>");
                 break;
             case 1:
-                document.write("<script src='./clustering.js'></script>");
+                document.write("<script src='./scripts/clustering.js'></script>");
                 break;
             case 2:
                 // image.src = "./resources/gachimuchi/hacker.gif";
