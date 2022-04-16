@@ -497,23 +497,8 @@ class NeuralNetwork {
     updateTrainingOptions(trainOpts) {
         const merged = { ...this.trainOpts, ...trainOpts };
         this.trainOpts = merged;
-        //this.setLogMethod(this.trainOpts.log);
     }
     
-    // setLogMethod(log) {
-    //     if (typeof log === 'function') {
-    //         this.trainOpts.log = log;
-    //     }
-    //     else if (log) {
-    //         this.trainOpts.log = this.logTrainingStatus;
-    //     }
-    //     else {
-    //         this.trainOpts.log = false;
-    //     }
-    // }
-    // logTrainingStatus(status) {
-    //     console.log(`iterations: ${status.iterations}, training error: ${status.error}`);
-    // }
     calculateTrainingError(data) {
         let sum = 0;
         for (let i = 0; i < data.length; ++i) {
@@ -172970,7 +172955,6 @@ net = new NeuralNetwork();
 net.train(trainData, {log: true});
 
 document.addEventListener('keydown', function(e) {
-  console.log(e.key);
   if (e.key == 'Tab')
   {
     e.preventDefault();
