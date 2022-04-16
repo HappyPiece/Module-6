@@ -53,6 +53,10 @@ function checkElementsRelevance() {
     document.getElementById("back").style.visibility = (history.length > 1) ? ("visible") : ("hidden");
     document.getElementById("next").style.visibility = (validateId(id) && (id < data.algorithms.length - 1)) ? ("visible") : ("hidden");
     document.getElementById("previous").style.visibility = (validateId(id) && (id > 0) && id != 1337) ? ("visible") : ("hidden");
+    document.getElementById("previous").addEventListener("click", previous);
+    document.getElementById("next").addEventListener("click", next);
+    document.getElementById("back").addEventListener("click", getBack);
+    document.getElementById("mainPage").addEventListener("click", toIndex);
 }
 
 function displayFooter() {

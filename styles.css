@@ -190,4 +190,6 @@ a:visited {
   margin: 10px;
   color: #a2a2a2;
   text-align: center;
+  line-height: 5vmin;
+  min-height: 5vmin;
 }
